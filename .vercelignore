@@ -1,0 +1,9 @@
+node_modules
+backend
+backend-v1-backup
+backend-v2
+google-cloud-sdk
+*.tar.gz
+*.zip
+dist
+.git

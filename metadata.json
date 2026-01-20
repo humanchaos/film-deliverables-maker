@@ -1,0 +1,5 @@
+{
+  "name": "Gemini Super App",
+  "description": "A consolidated application showcasing six different functionalities powered by the Gemini API, including text generation, image creation, structured data extraction, grounded search, code assistance, and a conversational chatbot.",
+  "requestFramePermissions": []
+}

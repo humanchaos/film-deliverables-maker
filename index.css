@@ -1,0 +1,412 @@
+/* ============================================================================
+   TMS CLIP ANALYZER - INTEGRATED STYLES
+   ============================================================================ */
+
+/* Tailwind CSS Imports */
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* ============================================================================
+   GLOBAL STYLES
+   ============================================================================ */
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+  
+  body {
+    @apply bg-gradient-to-br from-gray-900 via-gray-800 to-gray-900 text-gray-100;
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen',
+      'Ubuntu', 'Cantarell', 'Fira Sans', 'Droid Sans', 'Helvetica Neue',
+      sans-serif;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    min-height: 100vh;
+  }
+  
+  #root {
+    @apply min-h-screen;
+  }
+  
+  code {
+    font-family: source-code-pro, Menlo, Monaco, Consolas, 'Courier New',
+      monospace;
+  }
+}
+
+/* ============================================================================
+   CUSTOM UTILITIES
+   ============================================================================ */
+
+@layer utilities {
+  /* Scrollbar Styles */
+  .scrollbar-thin::-webkit-scrollbar {
+    width: 8px;
+    height: 8px;
+  }
+  
+  .scrollbar-thin::-webkit-scrollbar-track {
+    @apply bg-gray-800 rounded;
+  }
+  
+  .scrollbar-thin::-webkit-scrollbar-thumb {
+    @apply bg-gray-600 rounded hover:bg-gray-500;
+  }
+  
+  /* Text Gradients */
+  .text-gradient-purple {
+    @apply bg-gradient-to-r from-purple-400 via-pink-500 to-red-500 bg-clip-text text-transparent;
+  }
+  
+  .text-gradient-blue {
+    @apply bg-gradient-to-r from-blue-400 via-cyan-500 to-teal-500 bg-clip-text text-transparent;
+  }
+  
+  .text-gradient-rainbow {
+    @apply bg-gradient-to-r from-blue-400 via-purple-500 to-pink-500 bg-clip-text text-transparent;
+  }
+  
+  /* Animation utilities */
+  .animate-fade-in {
+    animation: fadeIn 0.3s ease-in;
+  }
+  
+  .animate-slide-up {
+    animation: slideUp 0.3s ease-out;
+  }
+  
+  .animate-slide-down {
+    animation: slideDown 0.3s ease-out;
+  }
+}
+
+/* ============================================================================
+   ANIMATIONS
+   ============================================================================ */
+
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes slideUp {
+  from {
+    transform: translateY(20px);
+    opacity: 0;
+  }
+  to {
+    transform: translateY(0);
+    opacity: 1;
+  }
+}
+
+@keyframes slideDown {
+  from {
+    transform: translateY(-20px);
+    opacity: 0;
+  }
+  to {
+    transform: translateY(0);
+    opacity: 1;
+  }
+}
+
+@keyframes pulse {
+  0%, 100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.5;
+  }
+}
+
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+/* ============================================================================
+   COMPONENT SPECIFIC STYLES
+   ============================================================================ */
+
+/* File Upload Drag & Drop */
+.drag-over {
+  @apply border-purple-500 bg-purple-900/20;
+}
+
+/* Video Player Enhancements */
+video {
+  @apply outline-none;
+}
+
+video::-webkit-media-controls {
+  @apply opacity-100;
+}
+
+/* Table Styles */
+table {
+  @apply w-full border-collapse;
+}
+
+thead {
+  @apply sticky top-0 z-10;
+}
+
+tbody tr {
+  @apply transition-colors duration-150;
+}
+
+tbody tr:hover {
+  @apply bg-gray-800/50;
+}
+
+/* Input Styles */
+input[type="text"],
+input[type="number"],
+textarea,
+select {
+  @apply transition-all duration-200;
+}
+
+input[type="text"]:focus,
+input[type="number"]:focus,
+textarea:focus,
+select:focus {
+  @apply ring-2 ring-offset-2 ring-offset-gray-900;
+}
+
+/* Button Hover Effects */
+button {
+  @apply transition-all duration-200 active:scale-95;
+}
+
+/* Progress Bar */
+.progress-bar {
+  @apply relative h-2 bg-gray-700 rounded-full overflow-hidden;
+}
+
+.progress-bar-fill {
+  @apply h-full bg-gradient-to-r from-purple-500 to-pink-500 transition-all duration-300;
+}
+
+/* Loading Spinner */
+.spinner {
+  @apply inline-block w-6 h-6 border-4 border-gray-300 border-t-purple-500 rounded-full;
+  animation: spin 1s linear infinite;
+}
+
+/* Mode Cards */
+.mode-card {
+  @apply relative overflow-hidden transition-all duration-300;
+}
+
+.mode-card::before {
+  content: '';
+  @apply absolute inset-0 opacity-0 transition-opacity duration-300;
+  background: linear-gradient(135deg, rgba(139, 92, 246, 0.1) 0%, rgba(236, 72, 153, 0.1) 100%);
+}
+
+.mode-card:hover::before {
+  @apply opacity-100;
+}
+
+/* Tooltip */
+.tooltip {
+  @apply absolute z-50 px-2 py-1 text-xs text-white bg-gray-900 rounded shadow-lg;
+  pointer-events: none;
+}
+
+/* Badge */
+.badge {
+  @apply inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium;
+}
+
+.badge-new {
+  @apply bg-gradient-to-r from-pink-500 to-rose-500 text-white;
+  animation: pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+}
+
+/* Results Card */
+.results-card {
+  @apply bg-gradient-to-br from-gray-900/90 to-gray-800/90 backdrop-blur-sm;
+}
+
+/* ============================================================================
+   RESPONSIVE DESIGN
+   ============================================================================ */
+
+/* Mobile Optimizations */
+@media (max-width: 640px) {
+  body {
+    @apply text-sm;
+  }
+  
+  h1 {
+    @apply text-2xl;
+  }
+  
+  h2 {
+    @apply text-xl;
+  }
+  
+  h3 {
+    @apply text-lg;
+  }
+  
+  /* Stack mode cards on mobile */
+  .mode-grid {
+    @apply grid-cols-1;
+  }
+  
+  /* Smaller padding on mobile */
+  .mobile-compact {
+    @apply p-4;
+  }
+}
+
+/* Tablet Optimizations */
+@media (min-width: 641px) and (max-width: 1024px) {
+  .mode-grid {
+    @apply grid-cols-2;
+  }
+}
+
+/* Desktop Optimizations */
+@media (min-width: 1025px) {
+  .mode-grid {
+    @apply grid-cols-2;
+  }
+  
+  /* Large screens show 3 columns for certain layouts */
+  .mode-grid-large {
+    @apply grid-cols-3;
+  }
+}
+
+/* ============================================================================
+   DARK MODE ENHANCEMENTS
+   ============================================================================ */
+
+/* Enhanced dark mode colors */
+.dark-card {
+  @apply bg-gray-900/50 border border-gray-700/50 backdrop-blur-sm;
+}
+
+.dark-input {
+  @apply bg-gray-800 border-gray-600 text-gray-200 placeholder-gray-500;
+}
+
+.dark-button {
+  @apply bg-gray-800 hover:bg-gray-700 text-gray-200;
+}
+
+/* ============================================================================
+   ACCESSIBILITY
+   ============================================================================ */
+
+/* Focus visible styles */
+*:focus-visible {
+  @apply outline-2 outline-offset-2 outline-purple-500;
+}
+
+/* Reduced motion */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}
+
+/* High contrast mode */
+@media (prefers-contrast: high) {
+  .mode-card {
+    @apply border-2 border-white;
+  }
+  
+  button {
+    @apply border-2 border-current;
+  }
+}
+
+/* ============================================================================
+   PRINT STYLES
+   ============================================================================ */
+
+@media print {
+  body {
+    @apply bg-white text-black;
+  }
+  
+  button,
+  .no-print {
+    @apply hidden;
+  }
+  
+  .results-card {
+    @apply bg-white border border-black;
+  }
+}
+
+/* ============================================================================
+   UTILITY CLASSES
+   ============================================================================ */
+
+.glass-effect {
+  @apply bg-white/5 backdrop-blur-md border border-white/10;
+}
+
+.shadow-glow {
+  box-shadow: 0 0 20px rgba(139, 92, 246, 0.3);
+}
+
+.shadow-glow-pink {
+  box-shadow: 0 0 20px rgba(236, 72, 153, 0.3);
+}
+
+.shadow-glow-cyan {
+  box-shadow: 0 0 20px rgba(6, 182, 212, 0.3);
+}
+
+/* ============================================================================
+   MODE-SPECIFIC THEME COLORS
+   ============================================================================ */
+
+/* Synopsis - Purple */
+.mode-synopsis {
+  @apply border-purple-500/30 hover:border-purple-400;
+}
+
+/* Bio - Indigo */
+.mode-bio {
+  @apply border-indigo-500/30 hover:border-indigo-400;
+}
+
+/* Graphics - Emerald */
+.mode-graphics {
+  @apply border-emerald-500/30 hover:border-emerald-400;
+}
+
+/* Fauna - Amber */
+.mode-fauna {
+  @apply border-amber-500/30 hover:border-amber-400;
+}
+
+/* Transcription - Pink */
+.mode-transcribe {
+  @apply border-pink-500/30 hover:border-pink-400;
+}
+
+/* Shot List - Cyan */
+.mode-shotlist {
+  @apply border-cyan-500/30 hover:border-cyan-400;
+}
