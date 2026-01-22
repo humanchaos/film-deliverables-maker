@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { ProjectMetadata, ExportTemplate } from '../types';
-import { Save, ArrowLeft, X, LogIn, LogOut, CheckCircle } from 'lucide-react';
+import { Save, ArrowLeft, X, LogIn, LogOut, CheckCircle, FileSpreadsheet } from 'lucide-react';
+import TemplateManager from './TemplateManager';
 import { authService } from '../services/authService';
 
 interface ProjectMetadataViewProps {
@@ -33,6 +34,7 @@ const ProjectMetadataView: React.FC<ProjectMetadataViewProps> = ({
     const [gcsProjectId, setGcsProjectId] = useState(currentGcsProjectId || '');
     const [useProMode, setUseProMode] = useState(currentUseProMode || false);
     const [isAuthenticating, setIsAuthenticating] = useState(false);
+    const [showTemplateManager, setShowTemplateManager] = useState(false);
 
     const handleChange = (field: keyof ProjectMetadata, value: string) => {
         setMetadata(prev => ({ ...prev, [field]: value }));
@@ -136,6 +138,20 @@ const ProjectMetadataView: React.FC<ProjectMetadataViewProps> = ({
                             <option value="ORF">ORF (Austrian)</option>
                             <option value="Custom">Custom Branding</option>
                         </select>
+                    </div>
+                    <div className="space-y-2">
+                        <label className="text-sm font-medium text-gray-300">Custom Script Templates</label>
+                        <button
+                            type="button"
+                            onClick={() => setShowTemplateManager(true)}
+                            className="w-full px-4 py-2 bg-purple-900/30 hover:bg-purple-900/50 border border-purple-700/50 rounded-lg text-left flex items-center gap-3 transition-colors"
+                        >
+                            <FileSpreadsheet size={18} className="text-purple-400" />
+                            <div>
+                                <p className="font-medium text-white">Manage Templates</p>
+                                <p className="text-xs text-gray-400">Upload industry-standard export layouts</p>
+                            </div>
+                        </button>
                     </div>
                     <div className="space-y-2">
                         <label className="text-sm font-medium text-gray-300">Start Timecode</label>
@@ -264,6 +280,12 @@ const ProjectMetadataView: React.FC<ProjectMetadataViewProps> = ({
                     </button>
                 </div>
             </form>
+
+            {/* Template Manager Modal */}
+            <TemplateManager
+                isOpen={showTemplateManager}
+                onClose={() => setShowTemplateManager(false)}
+            />
         </div>
     );
 };
