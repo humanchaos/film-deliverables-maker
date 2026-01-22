@@ -45,6 +45,7 @@ export interface JobInput {
     duration: number;
     fileName: string;
     analysisConfig: AnalysisConfig;
+    preferredLanguage?: string;
 }
 
 export interface Job {
@@ -211,6 +212,7 @@ export interface CreateJobRequest {
     duration: number;
     fileName: string;
     analysisConfig?: Partial<AnalysisConfig>;
+    geminiFileUri?: string; // If provided, worker skips re-upload to Gemini
 }
 
 export interface CreateJobResponse {

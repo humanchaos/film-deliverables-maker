@@ -4,11 +4,12 @@ import { thumbnailGenerator } from '../utils/thumbnailUtils';
 interface VideoThumbnailProps {
   videoUrl: string | null;
   timecode: string | number;
+  frameRate?: number; // Optional frame rate for accurate string timecode parsing
   alt?: string;
   className?: string;
 }
 
-const VideoThumbnail: React.FC<VideoThumbnailProps> = ({ videoUrl, timecode, alt = 'Video thumbnail', className = '' }) => {
+const VideoThumbnail: React.FC<VideoThumbnailProps> = ({ videoUrl, timecode, frameRate = 25, alt = 'Video thumbnail', className = '' }) => {
   const [thumbnail, setThumbnail] = useState<string | null>(null);
   const [isVisible, setIsVisible] = useState(false);
   const imgRef = useRef<HTMLDivElement>(null);
@@ -40,7 +41,7 @@ const VideoThumbnail: React.FC<VideoThumbnailProps> = ({ videoUrl, timecode, alt
     if (!isVisible || !videoUrl || thumbnail) return;
 
     let isMounted = true;
-    thumbnailGenerator.generateThumbnail(videoUrl, timecode).then((dataUrl) => {
+    thumbnailGenerator.generateThumbnail(videoUrl, timecode, frameRate).then((dataUrl) => {
       if (isMounted) setThumbnail(dataUrl);
     });
 

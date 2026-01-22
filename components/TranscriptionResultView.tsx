@@ -348,11 +348,21 @@ const TranscriptionResultView: React.FC<TranscriptionResultViewProps> = ({
                     }}
                   >
                     <td className="px-4 py-3">
-                      <VideoThumbnail
-                        videoUrl={activeVideoUrl || null}
-                        timecode={segment.startTime || 0}
-                        className="w-20 h-12 object-cover rounded shadow-sm border border-gray-700"
-                      />
+                      {/* Calculate midpoint for more representative thumbnail */}
+                      {(() => {
+                        const frameRate = videoMetadata?.frameRate || 25;
+                        const startSec = parseTimecode(segment.startTime, frameRate);
+                        const endSec = parseTimecode(segment.endTime, frameRate);
+                        const midpointSec = startSec + (endSec - startSec) / 2;
+                        return (
+                          <VideoThumbnail
+                            videoUrl={activeVideoUrl || null}
+                            timecode={midpointSec}
+                            frameRate={frameRate}
+                            className="w-20 h-12 object-cover rounded shadow-sm border border-gray-700"
+                          />
+                        );
+                      })()}
                     </td>
                     <td className="px-4 py-3 text-sm text-gray-400 font-mono whitespace-nowrap">
                       <EditableCell

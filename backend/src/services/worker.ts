@@ -7,6 +7,10 @@ import { getDb, Timestamp } from './firebase.js';
 import * as gemini from './gemini.js';
 import * as videoIntel from './videoIntel.js';
 import type { Job, AnalysisResults, ModuleProgress } from '../types.js';
+import { validateResults } from '../utils/timecode.js';
+import { matchSpeakersToNames } from '../utils/speakers.js';
+import { sanitizeForFirestore } from '../utils/firestore.js';
+import { detectLanguage } from './languageDetector.js';
 
 type ModuleName = 'transcription' | 'shotList' | 'synopsis' | 'fauna' | 'graphics' | 'cast';
 
@@ -62,7 +66,20 @@ export async function processJob(jobId: string): Promise<void> {
             await jobRef.update({ geminiFileUri });
         }
 
-        // 4. Determine which modules to run
+        // 4. Detect video language
+        await updateProgress(jobRef, 'language', 15, 'Detecting language...');
+        const detectedLang = await detectLanguage(geminiFileUri, job.input.mimeType);
+        const outputLanguage = job.input.preferredLanguage || detectedLang.name;
+        console.log(`[Worker] Output language: ${outputLanguage}`);
+
+        // Store language metadata
+        await jobRef.update({
+            'metadata.detectedLanguage': detectedLang.code,
+            'metadata.outputLanguage': outputLanguage,
+            'metadata.languageConfidence': detectedLang.confidence
+        });
+
+        // 5. Determine which modules to run
         const config = job.input.analysisConfig;
         const modules: ModuleName[] = [];
 
@@ -78,10 +95,11 @@ export async function processJob(jobId: string): Promise<void> {
         // 5. Process modules SEQUENTIALLY
         const results: AnalysisResults = {};
         const totalModules = modules.length;
+        const language = outputLanguage;
 
         for (let i = 0; i < modules.length; i++) {
             const moduleName = modules[i];
-            const baseProgress = 20 + Math.floor((i / totalModules) * 70);
+            const baseProgress = 25 + Math.floor((i / totalModules) * 65);
 
             await updateProgress(jobRef, moduleName, baseProgress, `Analyzing ${moduleName}...`);
             await updateModuleStatus(jobRef, moduleName, 'processing', 0);
@@ -93,7 +111,8 @@ export async function processJob(jobId: string): Promise<void> {
                     job.input.gcsUri,
                     job.input.mimeType,
                     job.input.duration,
-                    results
+                    results,
+                    language
                 );
 
                 results[moduleName] = moduleResult;
@@ -111,8 +130,22 @@ export async function processJob(jobId: string): Promise<void> {
             }
         }
 
-        // 6. Sanitize results (remove undefined values that Firestore rejects)
-        const sanitizedResults = sanitizeForFirestore(results);
+        // 6. Post-process results before writing
+        console.log(`[Worker] Post-processing results...`);
+
+        // 6a. Validate all timecodes against video duration
+        const validatedResults = validateResults(results, job.input.duration);
+
+        // 6b. Match speaker names from graphics to transcript
+        if (validatedResults.transcription && validatedResults.graphics) {
+            validatedResults.transcription = matchSpeakersToNames(
+                validatedResults.transcription,
+                validatedResults.graphics
+            );
+        }
+
+        // 6c. Sanitize for Firestore (remove any remaining undefined values)
+        const sanitizedResults = sanitizeForFirestore(validatedResults);
 
         // 7. Write all results atomically
         await jobRef.update({
@@ -139,31 +172,6 @@ export async function processJob(jobId: string): Promise<void> {
 }
 
 /**
- * Remove undefined values recursively (Firestore doesn't accept undefined)
- */
-function sanitizeForFirestore(obj: any): any {
-    if (obj === null || obj === undefined) {
-        return null;
-    }
-
-    if (Array.isArray(obj)) {
-        return obj.map(item => sanitizeForFirestore(item));
-    }
-
-    if (typeof obj === 'object') {
-        const result: Record<string, any> = {};
-        for (const [key, value] of Object.entries(obj)) {
-            if (value !== undefined) {
-                result[key] = sanitizeForFirestore(value);
-            }
-        }
-        return result;
-    }
-
-    return obj;
-}
-
-/**
  * Run a single analysis module
  */
 async function runModule(
@@ -172,7 +180,8 @@ async function runModule(
     gcsUri: string,
     mimeType: string,
     duration: number,
-    results: AnalysisResults
+    results: AnalysisResults,
+    language: string = 'English'
 ): Promise<any> {
     switch (moduleName) {
         case 'transcription':
@@ -187,21 +196,29 @@ async function runModule(
                 return { shots: [], totalShots: 0 };
             }
 
-            // Enrich with Gemini descriptions
+            // Enrich with Gemini descriptions in detected language
             const enrichedShots = await gemini.enrichShots(
                 geminiFileUri,
                 mimeType,
                 rawShots,
-                'English'
+                language
             );
 
             return { shots: enrichedShots, totalShots: enrichedShots.length };
 
         case 'synopsis':
-            return gemini.generateSynopsis(geminiFileUri, mimeType);
+            return gemini.generateSynopsis(geminiFileUri, mimeType, {
+                titleMaxChars: 60,
+                loglineMaxWords: 30,
+                summaryMaxWords: 100,
+                language: language
+            });
 
         case 'fauna':
-            return gemini.detectFauna(geminiFileUri, mimeType);
+            return gemini.detectFauna(geminiFileUri, mimeType, {
+                primaryLanguage: language,
+                secondaryLanguage: language === 'German' ? 'English' : 'German'
+            });
 
         case 'graphics':
             return gemini.detectGraphics(geminiFileUri, mimeType, duration);

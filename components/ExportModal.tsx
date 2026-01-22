@@ -1,13 +1,23 @@
-import React from 'react';
-import { X, FileText, FileJson, FileSpreadsheet, Film, Clapperboard, MessageSquare, Download } from 'lucide-react';
+import React, { useState, useEffect } from 'react';
+import { X, FileText, FileJson, FileSpreadsheet, Film, Clapperboard, MessageSquare, Layout } from 'lucide-react';
 import { Shot, TranscriptionResult, ProjectMetadata, ShotListResult, GraphicsAnalysisResult, SpeciesSighting } from '../types';
 import { generateEDL, generateFCPXML, generateResolveCSV, downloadNLEFile } from '../services/nleExportService';
 import { generateSubtitles, downloadSubtitle } from '../services/subtitleService';
 import { exportToWord } from '../services/documentExportService';
 import { exportToJSON } from '../services/exportService';
 import { generateCSV, downloadFile, applyTimecodeOffset } from '../utils/tableUtils';
+import { listTemplates, downloadWithTemplate, downloadBlob, TemplateSummary } from '../services/templateService';
 
 export type ExportType = 'shotlist' | 'transcription' | 'graphics' | 'fauna' | 'synopsis' | 'bio' | 'asbroadcast';
+
+// Map ExportType to backend module types
+const EXPORT_TO_MODULE: Record<string, string> = {
+    shotlist: 'shotList',
+    transcription: 'transcription',
+    fauna: 'fauna',
+    graphics: 'graphics',
+    bio: 'cast'
+};
 
 interface ExportModalProps {
     isOpen: boolean;
@@ -17,6 +27,7 @@ interface ExportModalProps {
     projectMetadata: ProjectMetadata;
     videoFileName: string;
     frameRate: number;
+    jobId?: string; // For template-based downloads
 }
 
 const ExportModal: React.FC<ExportModalProps> = ({
@@ -26,9 +37,38 @@ const ExportModal: React.FC<ExportModalProps> = ({
     data,
     projectMetadata,
     videoFileName,
-    frameRate
+    frameRate,
+    jobId
 }) => {
+    const [templates, setTemplates] = useState<TemplateSummary[]>([]);
+    const [loadingTemplates, setLoadingTemplates] = useState(false);
+
+    // Load templates that match this export type
+    useEffect(() => {
+        if (isOpen && jobId) {
+            setLoadingTemplates(true);
+            const moduleType = EXPORT_TO_MODULE[type] || type;
+            listTemplates()
+                .then(all => setTemplates(all.filter(t => t.moduleType === moduleType)))
+                .catch(() => setTemplates([]))
+                .finally(() => setLoadingTemplates(false));
+        }
+    }, [isOpen, type, jobId]);
+
     if (!isOpen) return null;
+
+    const handleTemplateExport = async (templateId: string, templateName: string) => {
+        if (!jobId) return;
+        try {
+            const moduleType = EXPORT_TO_MODULE[type] || type;
+            const blob = await downloadWithTemplate(jobId, moduleType, templateId);
+            downloadBlob(blob, `${videoFileName}_${templateName}.xlsx`);
+            onClose();
+        } catch (err) {
+            console.error('[ExportModal] Template export failed:', err);
+            alert('Export failed: ' + (err instanceof Error ? err.message : 'Unknown error'));
+        }
+    };
 
     const exportOptions: { label: string; icon: React.ReactNode; action: () => void; description: string; color: string }[] = [];
 
@@ -191,6 +231,39 @@ const ExportModal: React.FC<ExportModalProps> = ({
                         </button>
                     ))}
                 </div>
+
+                {/* Custom Templates Section */}
+                {jobId && templates.length > 0 && (
+                    <div className="px-6 pb-6">
+                        <div className="border-t border-gray-800 pt-4">
+                            <h4 className="text-sm font-semibold text-gray-300 mb-3 flex items-center gap-2">
+                                <Layout size={16} className="text-purple-400" />
+                                Custom Templates
+                            </h4>
+                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                                {templates.map(t => (
+                                    <button
+                                        key={t.id}
+                                        onClick={() => handleTemplateExport(t.id, t.name)}
+                                        className="p-3 bg-purple-900/30 hover:bg-purple-900/50 border border-purple-700/50 rounded-lg flex items-center gap-3 transition-all text-left"
+                                    >
+                                        <FileSpreadsheet size={18} className="text-purple-400" />
+                                        <div className="overflow-hidden">
+                                            <p className="font-medium text-white truncate">{t.name}</p>
+                                            <p className="text-xs text-gray-400 uppercase">{t.format}</p>
+                                        </div>
+                                    </button>
+                                ))}
+                            </div>
+                        </div>
+                    </div>
+                )}
+
+                {loadingTemplates && jobId && (
+                    <div className="px-6 pb-4">
+                        <p className="text-xs text-gray-500 text-center">Loading templates...</p>
+                    </div>
+                )}
 
                 {projectMetadata.timecodeStart && projectMetadata.timecodeStart !== '00:00:00:00' && (
                     <div className="bg-gray-800/50 p-4 text-center border-t border-gray-800">

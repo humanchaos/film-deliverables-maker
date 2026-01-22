@@ -19,7 +19,8 @@ export function initFirebase(): void {
     }
 
     db = admin.firestore();
-    console.log('[Firebase] Initialized');
+    db.settings({ ignoreUndefinedProperties: true });  // Prevent undefined value errors
+    console.log('[Firebase] Initialized with ignoreUndefinedProperties');
 }
 
 /**

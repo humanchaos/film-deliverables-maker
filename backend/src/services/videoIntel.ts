@@ -19,6 +19,8 @@ interface ShotBoundary {
 export async function detectShots(gcsUri: string): Promise<ShotBoundary[]> {
     console.log(`[VideoIntel] Detecting shots in ${gcsUri}...`);
 
+    const OPERATION_TIMEOUT_MS = 30 * 60 * 1000; // 30 minutes max
+
     try {
         const request = {
             inputUri: gcsUri,
@@ -29,7 +31,18 @@ export async function detectShots(gcsUri: string): Promise<ShotBoundary[]> {
         const [operation] = await client.annotateVideo(request);
 
         console.log('[VideoIntel] Processing...');
-        const [result] = await operation.promise();
+
+        // Wrap operation.promise() with timeout
+        const timeoutPromise = new Promise<never>((_, reject) => {
+            setTimeout(() => {
+                reject(new Error('Video Intelligence processing timeout after 30 minutes'));
+            }, OPERATION_TIMEOUT_MS);
+        });
+
+        const [result] = await Promise.race([
+            operation.promise(),
+            timeoutPromise
+        ]) as any;
 
         const annotations = result.annotationResults?.[0];
         const shotAnnotations = annotations?.shotAnnotations || [];

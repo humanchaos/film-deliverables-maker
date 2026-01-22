@@ -18,6 +18,14 @@ import {
     deleteJob,
     workerProcess,
 } from './controllers/jobs.js';
+import {
+    createTemplate,
+    listTemplates,
+    getTemplate,
+    updateTemplate,
+    deleteTemplate,
+    downloadWithTemplate
+} from './controllers/templates.js';
 
 // Validate configuration on startup
 validateConfig();
@@ -44,6 +52,16 @@ app.post('/api/jobs', createJob as any);
 app.get('/api/jobs/:id', getJob as any);
 app.delete('/api/jobs/:id', deleteJob as any);
 
+// Template management
+app.post('/api/templates', createTemplate as any);
+app.get('/api/templates', listTemplates as any);
+app.get('/api/templates/:id', getTemplate as any);
+app.put('/api/templates/:id', updateTemplate as any);
+app.delete('/api/templates/:id', deleteTemplate as any);
+
+// Download with custom template
+app.get('/api/jobs/:jobId/download/:module', downloadWithTemplate as any);
+
 // ═══════════════════════════════════════════════════════════════════════════
 // INTERNAL ROUTES (for Cloud Tasks / direct worker invocation)
 // ═══════════════════════════════════════════════════════════════════════════
@@ -58,7 +76,10 @@ app.get('/health', (req, res) => {
     res.status(200).json({
         status: 'healthy',
         timestamp: new Date().toISOString(),
-        version: '2.0.0',
+        version: '2.3.1',  // Increment on each deploy
+        apiVersion: 'v2',
+        service: 'gemini-super-app-backend',
+        features: ['geminiFileUri-passthrough'] // Track feature flags
     });
 });
 

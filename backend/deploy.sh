@@ -1,6 +1,6 @@
 #!/bin/bash
-# Deploy V2 Backend to Cloud Run
-# Run this script from the backend-v2 directory
+# Deploy Backend to Cloud Run
+# Run this script from the backend directory
 
 set -e
 

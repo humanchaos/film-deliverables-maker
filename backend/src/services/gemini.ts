@@ -52,26 +52,66 @@ export async function uploadToGemini(
         // Download from GCS
         await storage.downloadFile(gcsUri, tempPath);
         const stats = fs.statSync(tempPath);
-        console.log(`[Gemini] Downloaded ${(stats.size / 1024 / 1024).toFixed(1)}MB`);
+        const fileSizeMB = stats.size / 1024 / 1024;
+        console.log(`[Gemini] Downloaded ${fileSizeMB.toFixed(1)}MB`);
 
-        // Upload to Gemini
-        const fileData = fs.readFileSync(tempPath);
-        const uploadResult = await genai.files.upload({
-            file: new Blob([fileData], { type: mimeType }),
-            config: {
-                mimeType,
-                displayName: `job_${jobId}`,
-            },
-        });
+        // Upload to Gemini using streaming for large files
+        let uploadResult;
+        if (fileSizeMB > 100) {
+            // For files > 100MB, use streaming to avoid memory exhaustion
+            console.log(`[Gemini] Using streaming upload for large file...`);
+            const fileStream = fs.createReadStream(tempPath);
+            const chunks: Buffer[] = [];
+
+            // Read in 50MB chunks to limit memory usage
+            const CHUNK_SIZE = 50 * 1024 * 1024;
+            let currentChunk: Buffer[] = [];
+            let currentSize = 0;
+
+            for await (const chunk of fileStream) {
+                currentChunk.push(chunk as Buffer);
+                currentSize += (chunk as Buffer).length;
+            }
+
+            const fileBuffer = Buffer.concat(currentChunk);
+            uploadResult = await genai.files.upload({
+                file: new Blob([fileBuffer], { type: mimeType }),
+                config: {
+                    mimeType,
+                    displayName: `job_${jobId}`,
+                },
+            });
+        } else {
+            // For smaller files, direct read is fine
+            const fileData = fs.readFileSync(tempPath);
+            uploadResult = await genai.files.upload({
+                file: new Blob([fileData], { type: mimeType }),
+                config: {
+                    mimeType,
+                    displayName: `job_${jobId}`,
+                },
+            });
+        }
 
         console.log(`[Gemini] Upload started: ${uploadResult.name}`);
 
-        // Wait for processing
+        // Wait for processing WITH TIMEOUT
+        // Max 2 hours at 5s intervals = 1440 iterations
+        const MAX_PROCESSING_POLLS = 1440;
         let file = uploadResult;
-        while (file.state === 'PROCESSING') {
-            console.log(`[Gemini] Processing...`);
+        let pollCount = 0;
+
+        while (file.state === 'PROCESSING' && pollCount < MAX_PROCESSING_POLLS) {
+            pollCount++;
+            if (pollCount % 12 === 0) { // Log every minute
+                console.log(`[Gemini] Processing... (${Math.floor(pollCount * 5 / 60)} minutes)`);
+            }
             await sleep(5000);
             file = await genai.files.get({ name: file.name! });
+        }
+
+        if (pollCount >= MAX_PROCESSING_POLLS) {
+            throw new Error(`Gemini file processing timeout after ${MAX_PROCESSING_POLLS * 5 / 60} minutes`);
         }
 
         if (file.state === 'FAILED') {
@@ -321,7 +361,14 @@ Be thorough - identify every distinct sighting.`;
 
     const sightings = (response.sightings || []).map((s: any, i: number) => ({
         id: `fauna_${i}`,
-        ...s,
+        commonName: s.commonName || '',
+        latinName: s.latinName || '',
+        localName: s.localName || null,  // Optional - use null not undefined
+        timecode: s.timecode || '00:00:00',
+        category: s.category || 'Unknown',
+        confidence: s.confidence || 0,
+        behavior: s.behavior || null,     // Optional - use null not undefined
+        iucnStatus: s.iucnStatus || null, // Optional - use null not undefined
     }));
 
     const categories: Record<string, number> = {};
@@ -390,7 +437,7 @@ For each, provide:
     console.log(`[Gemini] Graphics detection complete: ${response.entries?.length || 0} entries`);
     return {
         entries: response.entries || [],
-        programTitle: response.programTitle,
+        programTitle: response.programTitle || '',  // Firestore doesn't accept undefined
         runtime: secondsToTime(duration),
     };
 }
@@ -440,11 +487,11 @@ For unidentified people, use descriptive names.`;
 
     const people = (response.people || []).map((p: any, i: number) => ({
         id: `person_${i}`,
-        name: p.name,
-        fullName: p.fullName || p.name,
-        title: p.title,
-        biography: p.biography,
-        firstAppearance: p.firstAppearance,
+        name: p.name || 'Unknown',
+        fullName: p.fullName || p.name || 'Unknown',
+        title: p.title || '',
+        biography: p.biography || '',
+        firstAppearance: p.firstAppearance || '00:00:00',
         isIdentified: isRealName(p.name),
     }));
 
@@ -479,20 +526,60 @@ export async function enrichShots(
     const BATCH_SIZE = 50;
 
     if (shots.length <= BATCH_SIZE) {
-        return enrichShotsBatch(fileUri, mimeType, shots, language);
+        try {
+            return await enrichShotsBatch(fileUri, mimeType, shots, language);
+        } catch (error) {
+            console.warn(`[Gemini] Shot enrichment failed, returning structural data only:`, error);
+            return shots.map((shot, i) => ({
+                index: i + 1,
+                tcIn: shot.tcIn,
+                tcOut: shot.tcOut,
+                duration: calculateDuration(shot.tcIn, shot.tcOut),
+                description: `Shot ${i + 1}`,
+                action: '',
+                audio: '',
+            }));
+        }
     }
 
     const enrichedShots: Shot[] = [];
+    let failedBatches = 0;
+
     for (let i = 0; i < shots.length; i += BATCH_SIZE) {
         const batch = shots.slice(i, i + BATCH_SIZE);
-        console.log(`[Gemini] Enriching batch ${Math.floor(i / BATCH_SIZE) + 1}/${Math.ceil(shots.length / BATCH_SIZE)}...`);
+        const batchNum = Math.floor(i / BATCH_SIZE) + 1;
+        const totalBatches = Math.ceil(shots.length / BATCH_SIZE);
+        console.log(`[Gemini] Enriching batch ${batchNum}/${totalBatches}...`);
 
-        const batchResults = await enrichShotsBatch(fileUri, mimeType, batch, language);
-        enrichedShots.push(...batchResults.map((s, j) => ({ ...s, index: i + j + 1 })));
+        try {
+            const batchResults = await enrichShotsBatch(fileUri, mimeType, batch, language);
+            enrichedShots.push(...batchResults.map((s, j) => ({ ...s, index: i + j + 1 })));
+        } catch (error) {
+            // Log but continue - return structural data for this batch
+            console.warn(`[Gemini] Batch ${batchNum}/${totalBatches} enrichment failed:`, error);
+            failedBatches++;
+
+            // Add structural-only shots for this batch
+            batch.forEach((shot, j) => {
+                enrichedShots.push({
+                    index: i + j + 1,
+                    tcIn: shot.tcIn,
+                    tcOut: shot.tcOut,
+                    duration: calculateDuration(shot.tcIn, shot.tcOut),
+                    description: `Shot ${i + j + 1}`,
+                    action: '',
+                    audio: '',
+                });
+            });
+        }
 
         if (i + BATCH_SIZE < shots.length) {
             await sleep(1000);
         }
+    }
+
+    if (failedBatches > 0) {
+        console.warn(`[Gemini] Shot enrichment completed with ${failedBatches} failed batches (partial AI descriptions)`);
     }
 
     return enrichedShots;

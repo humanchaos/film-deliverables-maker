@@ -1,6 +1,7 @@
 
 import { JobDocument, FullAnalysisResult } from '../types';
 
+// V2 Backend URL - MUST match gemini-super-app-backend deployment
 const API_BASE_URL = import.meta.env.VITE_API_URL || 'https://gemini-super-app-backend-193471035724.europe-west3.run.app';
 
 /**

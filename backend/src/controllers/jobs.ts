@@ -57,7 +57,7 @@ export async function getUploadUrl(req: Request, res: Response) {
  */
 export async function createJob(req: Request, res: Response) {
     try {
-        const { gcsUri, mimeType, duration, fileName, analysisConfig } = req.body as CreateJobRequest;
+        const { gcsUri, mimeType, duration, fileName, analysisConfig, geminiFileUri } = req.body as CreateJobRequest;
 
         // Validate required fields
         if (!gcsUri) {
@@ -66,6 +66,11 @@ export async function createJob(req: Request, res: Response) {
 
         if (!gcsUri.startsWith('gs://')) {
             return res.status(400).json({ error: 'gcsUri must be a gs:// URI' });
+        }
+
+        // Log if geminiFileUri was provided (avoids re-upload in worker)
+        if (geminiFileUri) {
+            console.log(`[Jobs] geminiFileUri provided, worker will skip re-upload`);
         }
 
         // Merge config with defaults
@@ -93,7 +98,7 @@ export async function createJob(req: Request, res: Response) {
 
         // Create job document
         const db = getDb();
-        const jobData = {
+        const jobData: Record<string, any> = {
             userId: 'anonymous', // TODO: Add auth
             status: 'queued' as const,
             input: {
@@ -119,6 +124,11 @@ export async function createJob(req: Request, res: Response) {
             createdAt: Timestamp.now(),
             updatedAt: Timestamp.now(),
         };
+
+        // Include geminiFileUri if provided (worker will skip re-upload)
+        if (geminiFileUri) {
+            jobData.geminiFileUri = geminiFileUri;
+        }
 
         const docRef = await db.collection('jobs').add(jobData);
         const jobId = docRef.id;

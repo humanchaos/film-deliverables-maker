@@ -231,11 +231,20 @@ const ShotListResultView: React.FC<ShotListResultViewProps> = ({
                     }}
                   >
                     <td className="px-4 py-3">
-                      <VideoThumbnail
-                        videoUrl={activeVideoUrl || null}
-                        timecode={shot.tcIn || 0}
-                        className="w-20 h-12 object-cover rounded shadow-sm border border-gray-700"
-                      />
+                      {/* Use midpoint of shot for thumbnail to better match description */}
+                      {(() => {
+                        const tcInSec = parseTimecode(shot.tcIn, result.frameRate);
+                        const tcOutSec = parseTimecode(shot.tcOut, result.frameRate);
+                        const midpointSec = tcInSec + (tcOutSec - tcInSec) / 2;
+                        return (
+                          <VideoThumbnail
+                            videoUrl={activeVideoUrl || null}
+                            timecode={midpointSec}
+                            frameRate={result.frameRate}
+                            className="w-20 h-12 object-cover rounded shadow-sm border border-gray-700"
+                          />
+                        );
+                      })()}
                     </td>
                     <td className="px-4 py-3 text-sm text-gray-400 font-mono">
                       <EditableCell

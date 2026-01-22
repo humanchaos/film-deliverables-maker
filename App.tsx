@@ -64,6 +64,7 @@ const TechSpecsView = lazy(() => import('./components/TechSpecsView'));
 const ErrorPopup = lazy(() => import('./components/ErrorPopup'));
 const HistoryView = lazy(() => import('./components/HistoryView'));
 const FeedbackModal = lazy(() => import('./components/FeedbackModal'));
+const OnboardingGuide = lazy(() => import('./components/OnboardingGuide'));
 
 const ProjectMetadataView = lazy(() => import('./components/ProjectMetadataView'));
 const SceneDetectorDebugView = lazy(() => import('./components/SceneDetectorDebugView'));
@@ -418,6 +419,7 @@ function appReducer(state: AppState, action: AppAction): AppState {
 const App: React.FC = () => {
   const [state, dispatch] = useReducer(appReducer, initialState);
   const [showFeedback, setShowFeedback] = useState(false);
+  const [forceShowOnboarding, setForceShowOnboarding] = useState(false);
 
   // Listen for custom feedback event (hack for ModeSelectView button)
   useEffect(() => {
@@ -1544,6 +1546,14 @@ const App: React.FC = () => {
           <FeedbackModal isOpen={showFeedback} onClose={() => setShowFeedback(false)} />
         </Suspense>
       )}
+
+      {/* Onboarding Guide - Shows on first visit per browser */}
+      <Suspense>
+        <OnboardingGuide
+          onComplete={() => setForceShowOnboarding(false)}
+          forceShow={forceShowOnboarding}
+        />
+      </Suspense>
     </div>
   );
 };

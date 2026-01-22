@@ -1,8 +1,9 @@
 import React, { useState } from 'react';
 import { ProjectMetadata, ExportTemplate } from '../types';
-import { Save, ArrowLeft, X, LogIn, LogOut, CheckCircle, FileSpreadsheet } from 'lucide-react';
+import { Save, ArrowLeft, X, LogIn, LogOut, CheckCircle, FileSpreadsheet, PlayCircle } from 'lucide-react';
 import TemplateManager from './TemplateManager';
 import { authService } from '../services/authService';
+import { resetOnboarding } from './OnboardingGuide';
 
 interface ProjectMetadataViewProps {
     initialMetadata: ProjectMetadata;
@@ -150,6 +151,23 @@ const ProjectMetadataView: React.FC<ProjectMetadataViewProps> = ({
                             <div>
                                 <p className="font-medium text-white">Manage Templates</p>
                                 <p className="text-xs text-gray-400">Upload industry-standard export layouts</p>
+                            </div>
+                        </button>
+                    </div>
+                    <div className="space-y-2">
+                        <label className="text-sm font-medium text-gray-300">Onboarding</label>
+                        <button
+                            type="button"
+                            onClick={() => {
+                                resetOnboarding();
+                                window.location.reload();
+                            }}
+                            className="w-full px-4 py-2 bg-teal-900/30 hover:bg-teal-900/50 border border-teal-700/50 rounded-lg text-left flex items-center gap-3 transition-colors"
+                        >
+                            <PlayCircle size={18} className="text-teal-400" />
+                            <div>
+                                <p className="font-medium text-white">Restart Walkthrough</p>
+                                <p className="text-xs text-gray-400">New to the tool? Replay the getting started guide</p>
                             </div>
                         </button>
                     </div>

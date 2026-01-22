@@ -1,251 +1,230 @@
 /**
- * Analysis Coordinator - Backend-Only Version
+ * Analysis Coordinator - V2 Clean Version
  * 
  * All analysis is routed through the Cloud Run backend.
- * This file is a thin wrapper for the BackendApiService.
- * 
- * Phase 1 Consolidation: Removed all client-side Gemini analysis code.
+ * Frontend ONLY uploads to GCS via signed URL, then backend handles everything.
  */
 
-import { uploadFileToGCS } from './gcsUploadService';
-import { smartUploadToGemini } from './uploadService';
-import { BackendApiService, mapBackendResultsToFullAnalysis } from './backendApiService';
-import {
-    AnalysisMode,
-    Shot,
-    UploadProgress,
-    SynopsisConfig,
-    BioConfig,
-    GraphicsConfig,
-    FaunaConfig,
-    ShotListConfig,
-    VideoMetadata
-} from '../types';
+import { uploadAndCreateJob, getJob } from './api';
+import { AnalysisMode, FullAnalysisResult, UploadProgress, VideoMetadata } from '../types';
+import type { Job, AnalysisConfig } from '../types_v2';
 
-// Types for the coordinated result
-export interface CoordinatedAnalysisResult {
-    shots?: Omit<Shot, 'nr' | 'thumbnail'>[];
-    transcription?: any;
-    metadata?: any;
-}
-
-interface AnalysisOptions {
+export interface AnalysisOptions {
     file: File;
-    fileUri?: string;
     mode: AnalysisMode;
-    apiKey: string;
-    accessToken?: string;
-    projectId?: string;
-    bucketName?: string;
-    useProMode?: boolean;
-    tokenIsValid?: boolean;
     onProgress: (message: string, percentage: number) => void;
-    onMultiProgress?: (mode: AnalysisMode, message: string, percentage: number) => void;
     signal?: AbortSignal;
-    synopsisConfig?: SynopsisConfig;
-    bioConfig?: BioConfig;
-    graphicsConfig?: GraphicsConfig;
-    faunaConfig?: FaunaConfig;
-    shotListConfig?: ShotListConfig;
     videoMetadata?: VideoMetadata | null;
+    fileUri?: string; // Gemini URI from frontend upload (matches App.tsx convention)
 }
 
 /**
- * Routes all analysis through the Cloud Run backend.
- * No client-side Gemini analysis is performed.
+ * Map v1 AnalysisMode to v2 AnalysisConfig
  */
-export async function performAnalysis(options: AnalysisOptions): Promise<any> {
-    const {
-        file,
-        fileUri,
-        mode,
-        apiKey,
-        accessToken,
-        bucketName,
-        tokenIsValid,
-        onProgress,
-        onMultiProgress,
-        signal,
-        videoMetadata
-    } = options;
-
-    // ═══════════════════════════════════════════════════════════════════════════════
-    // VALIDATION: Require backend access
-    // ═══════════════════════════════════════════════════════════════════════════════
-
-    if (!accessToken || !bucketName) {
-        throw new Error(
-            'Backend analysis requires authentication. Please sign in via Settings → Google Cloud Authentication.'
-        );
+function modeToConfig(mode: AnalysisMode): Partial<AnalysisConfig> {
+    // For full_analysis, enable all modules
+    if (mode === 'full_analysis') {
+        return {
+            transcription: true,
+            shotList: true,
+            synopsis: true,
+            fauna: true,
+            graphics: true,
+            cast: true,
+        };
     }
 
-    if (!tokenIsValid) {
-        throw new Error(
-            'Your session has expired. Please sign in again via Settings → Google Cloud Authentication.'
-        );
+    // For single module modes
+    const config: Partial<AnalysisConfig> = {
+        transcription: false,
+        shotList: false,
+        synopsis: false,
+        fauna: false,
+        graphics: false,
+        cast: false,
+    };
+
+    switch (mode) {
+        case 'transcription':
+            config.transcription = true;
+            break;
+        case 'shotlist':
+            config.shotList = true;
+            break;
+        case 'synopsis':
+            config.synopsis = true;
+            break;
+        case 'fauna':
+            config.fauna = true;
+            break;
+        case 'graphics':
+            config.graphics = true;
+            break;
+        case 'bio':
+            config.cast = true;
+            break;
     }
 
-    // ═══════════════════════════════════════════════════════════════════════════════
-    // STEP 1: Ensure file is in GCS
-    // ═══════════════════════════════════════════════════════════════════════════════
+    return config;
+}
 
-    let gcsUri = fileUri;
+/**
+ * Map v2 backend results to v1 frontend format
+ */
+function mapResultsToV1Format(results: any): FullAnalysisResult {
+    return {
+        // Shot list: v2 has { shots, totalShots }, v1 expects array directly in some places
+        shotList: results.shotList?.shots?.map((shot: any, index: number) => ({
+            nr: shot.index || index + 1,
+            tcIn: shot.tcIn,
+            tcOut: shot.tcOut,
+            duration: shot.duration,
+            description: shot.description,
+            action: shot.action,
+            audio: shot.audio,
+            thumbnail: shot.thumbnail,
+        })) || [],
 
-    if (!gcsUri || !gcsUri.startsWith('gs://')) {
-        // Cannot upload virtual/restored files (0 bytes)
-        if (file.size === 0) {
-            throw new Error(
-                'Cannot analyze restored file. Please re-upload the original video file.'
-            );
-        }
+        // Transcription: v2 uses 'text', v1 uses 'transcript'
+        transcription: results.transcription ? {
+            segments: (results.transcription.segments || []).map((seg: any) => ({
+                startTime: seg.startTime,
+                endTime: seg.endTime,
+                speaker: seg.speaker,
+                transcript: seg.text || seg.transcript || '',
+            })),
+            speakerMap: results.transcription.speakerMap || {},
+            text: results.transcription.fullText || results.transcription.text || '',
+        } : undefined,
 
-        console.log('[Coordinator] Uploading to GCS...');
-        onProgress('Uploading to Cloud Storage...', 0);
+        // Synopsis: v2 uses 'logline'/'summary', v1 uses 'oneLine'/'paragraph'
+        synopsis: results.synopsis ? {
+            title: results.synopsis.title,
+            oneLine: results.synopsis.logline,
+            paragraph: results.synopsis.summary,
+            fullSynopsis: results.synopsis.fullSynopsis,
+            themes: results.synopsis.themes,
+            targetAudience: results.synopsis.targetAudience,
+        } : undefined,
 
-        gcsUri = await uploadFileToGCS({
+        // Fauna: v2 has { sightings }, map to flat array
+        fauna: results.fauna?.sightings || [],
+
+        // Graphics: v2 has { entries }, map to split arrays with correct field names
+        graphics: results.graphics ? {
+            graphics: (results.graphics.entries || [])
+                .filter((e: any) => e.type !== 'lower_third')
+                .map((e: any) => ({
+                    type: e.type,
+                    description: e.content || e.description || '',
+                    timecodeIn: e.timecodeIn || '',
+                    timecodeOut: e.timecodeOut || '',
+                    position: e.position,
+                })),
+            lowerThirds: (results.graphics.entries || [])
+                .filter((e: any) => e.type === 'lower_third')
+                .map((e: any) => ({
+                    type: e.type,
+                    text: e.content || e.text || '',
+                    timecodeIn: e.timecodeIn || '',
+                    timecodeOut: e.timecodeOut || '',
+                    position: e.position,
+                })),
+            programTitle: results.graphics.programTitle,
+            runtime: results.graphics.runtime,
+        } : undefined,
+
+        // Bio/Cast: v2 uses 'cast.people', v1 uses 'bio' array
+        bio: results.cast?.people?.map((p: any) => ({
+            name: p.name,
+            fullName: p.fullName,
+            title: p.title,
+            biography: p.biography,
+            firstAppearance: p.firstAppearance,
+            isIdentified: p.isIdentified,
+        })) || [],
+    };
+}
+
+/**
+ * Perform analysis via backend
+ */
+export async function performAnalysis(options: AnalysisOptions): Promise<FullAnalysisResult> {
+    const { file, mode, onProgress, signal, videoMetadata, fileUri } = options;
+
+    // STEP 1: Upload and create job via new API
+    onProgress('Uploading video...', 5);
+
+    const duration = videoMetadata?.duration || 0;
+    const config = modeToConfig(mode);
+
+    // Log if we're passing the Gemini URI (skip re-upload)
+    if (fileUri) {
+        console.log(`[Coordinator] Using existing Gemini URI: ${fileUri.substring(0, 50)}...`);
+    }
+
+    let jobId: string;
+    try {
+        jobId = await uploadAndCreateJob(
             file,
-            bucketName: bucketName!,
-            apiKey,
-            accessToken: accessToken!,
-            onProgress: (p: UploadProgress) => {
-                onProgress(p.message, p.percentage * 0.2); // 0-20%
+            duration,
+            config,
+            (stage, progress) => {
+                onProgress(stage, progress * 0.5); // 0-50% for upload
             },
-            signal
-        });
-    } else {
-        onProgress('File ready in Cloud Storage...', 20);
+            fileUri // Pass Gemini URI to backend
+        );
+    } catch (error) {
+        throw new Error(`Upload failed: ${error instanceof Error ? error.message : 'Unknown error'}`);
     }
 
-    // ═══════════════════════════════════════════════════════════════════════════════
-    // STEP 2: Upload to Gemini Files API (for Gemini-based analysis)
-    // ═══════════════════════════════════════════════════════════════════════════════
-
-    let geminiFileUri = fileUri;
-
-    if (!geminiFileUri || geminiFileUri.startsWith('gs://')) {
-        // Need to upload to Gemini Files API
-        if (file.size > 0) {
-            onProgress('Preparing for AI analysis...', 22);
-            try {
-                geminiFileUri = await smartUploadToGemini({
-                    file,
-                    apiKey,
-                    onProgress: (p: UploadProgress) => {
-                        onProgress(p.message, 22 + (p.percentage * 0.03)); // 22-25%
-                    },
-                    signal
-                });
-            } catch (e) {
-                console.warn('[Coordinator] Gemini upload failed, backend will handle:', e);
-                // Backend can still work with GCS URI, so we continue
-            }
-        }
-    }
-
-    // ═══════════════════════════════════════════════════════════════════════════════
-    // STEP 3: Create backend job
-    // ═══════════════════════════════════════════════════════════════════════════════
-
-    onProgress('Starting backend analysis...', 25);
-    console.log(`[Coordinator] Creating job - gcsUri: ${gcsUri?.substring(0, 50)}...`);
-    console.log(`[Coordinator] Creating job - geminiUri: ${geminiFileUri?.substring(0, 50)}...`);
-
-    const jobId = await BackendApiService.createJob(
-        gcsUri!,
-        file.type,
-        videoMetadata?.duration,
-        geminiFileUri
-    );
     console.log(`[Coordinator] Job created: ${jobId}`);
 
-    // ═══════════════════════════════════════════════════════════════════════════════
-    // STEP 4: Poll for completion
-    // ═══════════════════════════════════════════════════════════════════════════════
+    // STEP 2: Poll for completion
+    onProgress('Analyzing video...', 50);
 
     const startTime = Date.now();
     const JOB_TIMEOUT = 180 * 60 * 1000; // 180 minutes
-    const MAX_CONSECUTIVE_ERRORS = 20;
-    const BASE_INTERVAL = 2000;
-    const MAX_BACKOFF = 10000;
-
-    let attempt = 0;
-    let consecutiveErrors = 0;
+    const POLL_INTERVAL = 3000;
 
     while (true) {
-        if (signal?.aborted) {
-            throw new Error('Operation cancelled');
-        }
-
-        // Timeout check
+        // Check timeout
         if (Date.now() - startTime > JOB_TIMEOUT) {
-            throw new Error('Analysis timed out. The job may still be running on the backend.');
+            throw new Error('Analysis timed out. Please try again.');
         }
 
-        // Offline detection - pause polling
-        if (typeof navigator !== 'undefined' && !navigator.onLine) {
-            console.log('[Coordinator] Offline detected, pausing...');
-            await new Promise(resolve => setTimeout(resolve, 5000));
-            continue;
+        // Check abort signal
+        if (signal?.aborted) {
+            throw new Error('Analysis cancelled');
         }
-
-        const isHidden = typeof document !== 'undefined' && document.hidden;
 
         try {
-            const job = await BackendApiService.getJob(jobId);
+            const job = await getJob(jobId);
 
-            // Reset error counters on success
-            attempt = 0;
-            consecutiveErrors = 0;
-
-            // Update module progress
-            if (job.progress?.modules && onMultiProgress) {
-                const m = job.progress.modules;
-                if (m.fauna) onMultiProgress('fauna', m.fauna.status === 'completed' ? 'Done' : m.fauna.status, m.fauna.progress);
-                if (m.transcription) onMultiProgress('transcribe', m.transcription.status === 'completed' ? 'Done' : 'Processing', m.transcription.progress);
-                if (m.shotList) onMultiProgress('shotlist', m.shotList.status === 'completed' ? 'Done' : 'Processing', m.shotList.progress);
-                if (m.synopsis) onMultiProgress('synopsis', m.synopsis.status === 'completed' ? 'Done' : 'Processing', m.synopsis.progress);
-                if (m.graphics) onMultiProgress('graphics', m.graphics.status === 'completed' ? 'Done' : 'Processing', m.graphics.progress);
-                if (m.cast) onMultiProgress('bio', m.cast.status === 'completed' ? 'Done' : 'Processing', m.cast.progress);
-            }
-
-            // Update overall progress (25-100%)
-            const overall = 25 + ((job.progress?.overall || 0) * 0.75);
-            onProgress(job.progress?.currentStage || 'Processing...', overall);
+            // Update progress
+            const progress = job.progress?.overall || 0;
+            const currentModule = job.progress?.currentModule || 'processing';
+            onProgress(`Analyzing: ${currentModule}...`, 50 + (progress * 0.5)); // 50-100%
 
             // Check completion
             if (job.status === 'completed') {
-                if (!job.results && !job.hasSubcollections) {
-                    throw new Error('Job completed but results are missing');
-                }
-                console.log('[Coordinator] Job completed successfully');
-                // Transform v2 backend results to frontend format
-                return mapBackendResultsToFullAnalysis(job.results || {});
+                console.log('[Coordinator] Job completed');
+                onProgress('Analysis complete!', 100);
+                return mapResultsToV1Format(job.results || {});
             }
 
             if (job.status === 'failed') {
-                throw new Error(job.error?.message || 'Backend processing failed');
+                throw new Error(job.error?.message || 'Analysis failed');
             }
-
-        } catch (pollError: any) {
-            consecutiveErrors++;
-            console.warn(`[Coordinator] Poll error (${consecutiveErrors}/${MAX_CONSECUTIVE_ERRORS}): ${pollError.message}`);
-
-            // Terminal errors - don't retry
-            if (pollError.message.includes('404') || pollError.message.includes('Not Found')) {
-                throw new Error(`Job ${jobId} not found. It may have expired.`);
+        } catch (error) {
+            // Only throw if it's a real error, not a transient network issue
+            if (error instanceof Error && error.message.includes('not found')) {
+                throw error;
             }
-
-            // Too many consecutive failures
-            if (consecutiveErrors >= MAX_CONSECUTIVE_ERRORS) {
-                throw new Error('Connection lost. Please check your internet connection.');
-            }
+            console.warn('[Coordinator] Poll error, retrying...', error);
         }
 
-        // Adaptive backoff
-        let interval = isHidden ? 30000 : Math.min(BASE_INTERVAL * Math.pow(1.5, attempt++), MAX_BACKOFF);
-        if (consecutiveErrors > 0) interval = Math.max(interval, 5000);
-
-        const jitter = Math.random() * 1000;
-        await new Promise(resolve => setTimeout(resolve, interval + jitter));
+        // Wait before next poll
+        await new Promise(resolve => setTimeout(resolve, POLL_INTERVAL));
     }
 }

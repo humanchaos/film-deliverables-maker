@@ -297,7 +297,12 @@ const FaunaResultView: React.FC<FaunaResultViewProps> = ({
                   ${isRowSelected ? 'bg-teal-900/30' : ''}`}
               >
                 <div className="px-4 py-2 border-r border-gray-700 relative h-20 flex items-center justify-center p-2">
-                  <VideoThumbnail videoUrl={videoPreviewUrl} timecode={species.firstTimecode} className="w-full h-full rounded-md pointer-events-none opacity-80 group-hover:opacity-100 transition-opacity object-cover bg-black" />
+                  <VideoThumbnail
+                    videoUrl={videoPreviewUrl}
+                    timecode={parseTimecode(species.firstTimecode, videoMetadata?.frameRate || 25)}
+                    frameRate={videoMetadata?.frameRate || 25}
+                    className="w-full h-full rounded-md pointer-events-none opacity-80 group-hover:opacity-100 transition-opacity object-cover bg-black"
+                  />
                   <div className="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 pointer-events-none">
                     <span className="bg-black/60 text-white rounded-full p-1"><ArrowLeft size={16} className="rotate-180" /></span>
                   </div>
@@ -332,7 +337,7 @@ const FaunaResultView: React.FC<FaunaResultViewProps> = ({
                 </div>
                 <div className="px-4 py-2 border-r border-gray-700 text-sm text-gray-400 truncate" title={species.behaviors.join(', ')}>{species.behaviors.join(', ') || '-'}</div>
                 <div className="px-4 py-2 border-r border-gray-700 text-sm text-gray-400 truncate">{species.iucnStatus || '-'}</div>
-                <div className="px-4 py-2 border-r border-gray-700 text-sm font-mono text-center text-gray-400 group-hover:text-indigo-400 font-bold">{parseTimecode(species.allSightings[0]?.timestamp || 0)}</div>
+                <div className="px-4 py-2 border-r border-gray-700 text-sm font-mono text-center text-gray-400 group-hover:text-indigo-400 font-bold">{species.firstTimecode || species.allSightings[0]?.timecode || '-'}</div>
                 <div className="px-4 py-2 text-center text-sm"><span className="inline-block px-2 py-1 bg-green-500/20 text-green-300 rounded text-xs font-medium">{species.allSightings.length}</span></div>
               </div>
             );

@@ -41,8 +41,8 @@ class ThumbnailGenerator {
     }
   }
 
-  public generateThumbnail(videoUrl: string, timecode: string | number): Promise<string> {
-    const time = typeof timecode === 'string' ? parseTimecode(timecode) : timecode;
+  public generateThumbnail(videoUrl: string, timecode: string | number, frameRate: number = 25): Promise<string> {
+    const time = typeof timecode === 'string' ? parseTimecode(timecode, frameRate) : timecode;
     const id = `${videoUrl}-${time}`;
 
     // Deduplicate: If request exists, remove it (we will re-add at the top of stack)
@@ -121,11 +121,9 @@ class ThumbnailGenerator {
       }
 
       // 3. Seek to specific time
-      // Add 0.5s offset to avoid keyframe boundary issues at shot cuts.
-      // Browsers seek to nearest keyframe (often ~2s intervals), so seeking to exact tcIn
-      // often shows the previous shot's frame. Adding offset ensures we're inside the new shot.
-      const KEYFRAME_OFFSET = 0.5; // seconds
-      this.videoElement.currentTime = Math.min(seekTime + KEYFRAME_OFFSET, duration - 0.1);
+      // Seek directly to requested time for accurate frame preview
+      // Browser will seek to nearest keyframe and decode forward to exact frame
+      this.videoElement.currentTime = Math.min(seekTime, duration - 0.1);
 
       // 4. Wait for seek
       const seekSuccess = await new Promise<boolean>((resolve) => {
