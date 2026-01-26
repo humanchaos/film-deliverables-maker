@@ -27,3 +27,8 @@ dist-ssr
 google-cloud-cli-darwin-arm.tar.gz
 project_source_code.zip
 *.tar.gz
+
+# Large binary files
+*.tar.gz
+*.zip
+google-cloud-sdk/
