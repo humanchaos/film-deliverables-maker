@@ -1,4 +1,5 @@
 import React, { useState, useMemo } from 'react';
+import { useTranslation } from 'react-i18next';
 import { SpeciesSighting, FaunaConfig, VideoMetadata, ProjectMetadata } from '../types';
 import { useVerificationState } from '../hooks/useVerificationState';
 
@@ -71,6 +72,7 @@ const FaunaResultView: React.FC<FaunaResultViewProps> = ({
   config,
   onSave,
 }) => {
+  const { t } = useTranslation();
   const [copied, setCopied] = useState(false);
   const [isSaved, setIsSaved] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
@@ -217,15 +219,15 @@ const FaunaResultView: React.FC<FaunaResultViewProps> = ({
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
-        <button onClick={onBack} className="flex items-center gap-2 text-gray-400 hover:text-white transition-colors"><ArrowLeft size={20} />Back</button>
+        <button onClick={onBack} className="flex items-center gap-2 text-gray-400 hover:text-white transition-colors"><ArrowLeft size={20} />{t('common.back', 'Back')}</button>
         <div className="flex gap-2">
-          <button onClick={handleCopyTable} className="flex items-center gap-2 px-4 py-2 bg-indigo-600 hover:bg-indigo-700 rounded-lg">{copied ? <Check size={18} /> : <Copy size={18} />}{copied ? 'Copied!' : 'Copy Table'}</button>
+          <button onClick={handleCopyTable} className="flex items-center gap-2 px-4 py-2 bg-indigo-600 hover:bg-indigo-700 rounded-lg">{copied ? <Check size={18} /> : <Copy size={18} />}{copied ? t('actions.copied', 'Copied!') : t('actions.copyTable', 'Copy Table')}</button>
 
           <button
             onClick={() => setShowExportModal(true)}
             className="flex items-center gap-2 px-4 py-2 bg-blue-600 hover:bg-blue-700 rounded-lg text-white font-semibold"
           >
-            <Download size={18} />Export Options...
+            <Download size={18} />{t('export.options', 'Export Options...')}
           </button>
 
           <ExportModal
@@ -238,12 +240,12 @@ const FaunaResultView: React.FC<FaunaResultViewProps> = ({
             frameRate={videoMetadata?.frameRate || 25}
           />
 
-          <button onClick={handleSaveToDatabase} disabled={isSaved || isSaving} className="flex items-center gap-2 px-4 py-2 bg-teal-600 hover:bg-teal-700 rounded-lg disabled:bg-gray-500 disabled:cursor-not-allowed">{isSaved ? <Check size={18} /> : <Database size={18} />}{isSaved ? 'Saved' : isSaving ? 'Saving...' : 'Save'}</button>
+          <button onClick={handleSaveToDatabase} disabled={isSaved || isSaving} className="flex items-center gap-2 px-4 py-2 bg-teal-600 hover:bg-teal-700 rounded-lg disabled:bg-gray-500 disabled:cursor-not-allowed">{isSaved ? <Check size={18} /> : <Database size={18} />}{isSaved ? t('common.saved', 'Saved') : isSaving ? t('common.saving', 'Saving...') : t('common.save', 'Save')}</button>
         </div>
       </div>
 
       <div className="text-center">
-        <h2 className="text-3xl font-bold text-transparent bg-clip-text bg-gradient-to-r from-green-400 to-emerald-500">Species List / Artenliste</h2>
+        <h2 className="text-3xl font-bold text-transparent bg-clip-text bg-gradient-to-r from-green-400 to-emerald-500">{t('fauna.title', 'Species List / Artenliste')}</h2>
         <p className="text-gray-400 mt-2 font-semibold">{programTitle.toUpperCase()}</p>
       </div>
 
@@ -259,9 +261,9 @@ const FaunaResultView: React.FC<FaunaResultViewProps> = ({
       )}
 
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-        <div className="bg-gray-700/50 p-4 rounded-lg text-center"><div className="text-3xl font-bold text-green-400">{filteredSpeciesList.length}</div><div className="text-gray-400 text-sm mt-1">Unique Species</div></div>
-        <div className="bg-gray-700/50 p-4 rounded-lg text-center"><div className="text-3xl font-bold text-emerald-400">{sightings.length}</div><div className="text-gray-400 text-sm mt-1">Total Sightings</div></div>
-        <div className="bg-gray-700/50 p-4 rounded-lg text-center"><div className="text-3xl font-bold text-teal-400">{categories.length}</div><div className="text-gray-400 text-sm mt-1">Categories</div></div>
+        <div className="bg-gray-700/50 p-4 rounded-lg text-center"><div className="text-3xl font-bold text-green-400">{filteredSpeciesList.length}</div><div className="text-gray-400 text-sm mt-1">{t('fauna.uniqueSpecies', 'Unique Species')}</div></div>
+        <div className="bg-gray-700/50 p-4 rounded-lg text-center"><div className="text-3xl font-bold text-emerald-400">{sightings.length}</div><div className="text-gray-400 text-sm mt-1">{t('fauna.totalSightings', 'Total Sightings')}</div></div>
+        <div className="bg-gray-700/50 p-4 rounded-lg text-center"><div className="text-3xl font-bold text-teal-400">{categories.length}</div><div className="text-gray-400 text-sm mt-1">{t('fauna.categories', 'Categories')}</div></div>
       </div>
 
       {categories.length > 0 && <div className="flex items-center gap-3"><Filter size={18} className="text-gray-400" /><select value={filterCategory} onChange={e => setFilterCategory(e.target.value)} className="bg-gray-700 text-white px-4 py-2 rounded-lg border border-gray-600 focus:outline-none focus:ring-2 focus:ring-green-500"><option value="all">All Categories ({speciesList.length})</option>{categories.map(cat => { const count = speciesList.filter(s => s.allSightings.some(sight => sight.category === cat)).length; return <option key={cat} value={cat}>{cat} ({count})</option>; })}</select></div>}
@@ -347,7 +349,7 @@ const FaunaResultView: React.FC<FaunaResultViewProps> = ({
 
       <div className="flex justify-center gap-4 pt-6 border-t border-gray-700/50">
         <button onClick={onReset} className="px-6 py-3 bg-gray-700 hover:bg-gray-600 rounded-lg transition-colors font-medium">
-          Analyze Another Video
+          {t('actions.analyzeAnother', 'Analyze Another Video')}
         </button>
       </div>
     </div >

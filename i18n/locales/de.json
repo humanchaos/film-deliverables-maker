@@ -137,6 +137,26 @@
         "verification": "Verifizierungs-Station",
         "shots": "Einstellungen"
     },
+    "synopsis": {
+        "generated": "Synopsis generiert!",
+        "logline": "Logline",
+        "summary": "Zusammenfassung",
+        "fullSynopsis": "Vollständige Synopsis",
+        "keyThemes": "Hauptthemen",
+        "targetAudience": "Zielgruppe"
+    },
+    "fauna": {
+        "title": "Artenliste / Species List",
+        "uniqueSpecies": "Einzigartige Arten",
+        "totalSightings": "Gesamte Sichtungen",
+        "categories": "Kategorien"
+    },
+    "graphics": {
+        "title": "Grafiken & Bauchbinden Log",
+        "graphics": "Grafiken",
+        "lowerThirds": "Bauchbinden",
+        "totalItems": "Gesamt"
+    },
     "speakers": {
         "title": "Sprecher verwalten",
         "hint": "Benennen Sie einen Sprecher um, um die Änderung auf alle Segmente anzuwenden.",

@@ -137,6 +137,26 @@
         "verification": "Verification Station",
         "shots": "shots"
     },
+    "synopsis": {
+        "generated": "Synopsis Generated!",
+        "logline": "Logline",
+        "summary": "Summary",
+        "fullSynopsis": "Full Synopsis",
+        "keyThemes": "Key Themes",
+        "targetAudience": "Target Audience"
+    },
+    "fauna": {
+        "title": "Species List / Artenliste",
+        "uniqueSpecies": "Unique Species",
+        "totalSightings": "Total Sightings",
+        "categories": "Categories"
+    },
+    "graphics": {
+        "title": "Graphics & Lower Thirds Log",
+        "graphics": "Graphics",
+        "lowerThirds": "Lower Thirds",
+        "totalItems": "Total Items"
+    },
     "speakers": {
         "title": "Manage Speakers",
         "hint": "Rename a speaker to apply the change to all segments.",

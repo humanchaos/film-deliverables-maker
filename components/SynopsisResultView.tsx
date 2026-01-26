@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { Synopsis, VideoMetadata, ProjectMetadata } from '../types';
 import { generateCSV, downloadFile, copyToClipboard } from '../utils/tableUtils';
 import { ArrowLeft, Download, Save, RefreshCw, Database, Check } from 'lucide-react';
@@ -16,6 +17,7 @@ interface SynopsisResultViewProps {
 }
 
 const SynopsisResultView: React.FC<SynopsisResultViewProps> = ({ synopsis, onReset, onBack, onSave, videoFileName, videoMetadata, projectMetadata }) => {
+  const { t } = useTranslation();
   const [copied, setCopied] = useState(false);
   const [isSaved, setIsSaved] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
@@ -93,7 +95,7 @@ ${synopsis.targetAudience}
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
           </svg>
         </div>
-        <h3 className="text-2xl font-bold text-gray-200">Synopsis Generated!</h3>
+        <h3 className="text-2xl font-bold text-gray-200">{t('synopsis.generated', 'Synopsis Generated!')}</h3>
       </div>
 
       <div className="space-y-6">
@@ -108,7 +110,7 @@ ${synopsis.targetAudience}
         </div>
         <div className="bg-gradient-to-r from-purple-900/30 to-indigo-900/30 rounded-lg p-4 border border-purple-500/30">
           <h4 className="text-sm font-bold text-purple-400 uppercase tracking-wide mb-2">
-            Logline
+            {t('synopsis.logline', 'Logline')}
           </h4>
           <p className="text-gray-200 italic">
             {synopsis.oneLine}
@@ -116,7 +118,7 @@ ${synopsis.targetAudience}
         </div>
         <div className="bg-gray-900/50 rounded-lg p-4 border border-gray-700">
           <h4 className="text-sm font-bold text-indigo-400 uppercase tracking-wide mb-2">
-            Summary
+            {t('synopsis.summary', 'Summary')}
           </h4>
           <p className="text-gray-300 leading-relaxed">
             {synopsis.paragraph}
@@ -124,7 +126,7 @@ ${synopsis.targetAudience}
         </div>
         <div className="bg-gray-900/50 rounded-lg p-4 border border-gray-700">
           <h4 className="text-sm font-bold text-indigo-400 uppercase tracking-wide mb-2">
-            Full Synopsis
+            {t('synopsis.fullSynopsis', 'Full Synopsis')}
           </h4>
           <div className="text-gray-300 leading-relaxed whitespace-pre-line">
             {synopsis.fullSynopsis}
@@ -133,7 +135,7 @@ ${synopsis.targetAudience}
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <div className="bg-gray-900/50 rounded-lg p-4 border border-gray-700">
             <h4 className="text-sm font-bold text-indigo-400 uppercase tracking-wide mb-2">
-              Key Themes
+              {t('synopsis.keyThemes', 'Key Themes')}
             </h4>
             <p className="text-gray-300 leading-relaxed">
               {synopsis.keyThemes}
@@ -141,7 +143,7 @@ ${synopsis.targetAudience}
           </div>
           <div className="bg-gray-900/50 rounded-lg p-4 border border-gray-700">
             <h4 className="text-sm font-bold text-indigo-400 uppercase tracking-wide mb-2">
-              Target Audience
+              {t('synopsis.targetAudience', 'Target Audience')}
             </h4>
             <p className="text-gray-300 leading-relaxed">
               {synopsis.targetAudience}
@@ -158,7 +160,7 @@ ${synopsis.targetAudience}
           {copied ? (
             <><svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" /></svg>Copied!</>
           ) : (
-            <><svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" /></svg>Copy All</>
+            <><svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" /></svg>{t('actions.copyAll', 'Copy All')}</>
           )}
         </button>
         <button
@@ -166,7 +168,7 @@ ${synopsis.targetAudience}
           className="px-6 py-3 bg-green-600 hover:bg-green-700 text-white font-semibold rounded-lg transition-all duration-200 shadow-lg transform hover:scale-105 flex items-center justify-center gap-2"
         >
           <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 17v-2m3 2v-4m3 4v-6m2 10H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2-2z" /></svg>
-          Download CSV
+          {t('actions.downloadCSV', 'Download CSV')}
         </button>
 
         <button
@@ -174,14 +176,14 @@ ${synopsis.targetAudience}
           className="px-6 py-3 bg-blue-600 hover:bg-blue-700 text-white font-semibold rounded-lg transition-all duration-200 shadow-lg transform hover:scale-105 flex items-center justify-center gap-2"
         >
           <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" /></svg>
-          Export Word
+          {t('actions.exportWord', 'Export Word')}
         </button>
         <button
           onClick={handleExportJSON}
           className="px-6 py-3 bg-yellow-600 hover:bg-yellow-700 text-white font-semibold rounded-lg transition-all duration-200 shadow-lg transform hover:scale-105 flex items-center justify-center gap-2"
         >
           <Database size={20} />
-          Export JSON
+          {t('actions.exportJSON', 'Export JSON')}
         </button>
         <button
           onClick={handleSaveToDatabase}
@@ -195,10 +197,10 @@ ${synopsis.targetAudience}
           )}
         </button>
         <button onClick={onBack} className="px-6 py-3 bg-gray-700 hover:bg-gray-600 text-white font-semibold rounded-lg">
-          Back to Dashboard
+          {t('nav.backToDashboard', 'Back to Dashboard')}
         </button>
         <button onClick={onReset} className="px-6 py-3 bg-red-800 hover:bg-red-700 text-white font-semibold rounded-lg">
-          New Video
+          {t('actions.newVideo', 'New Video')}
         </button>
       </div>
     </div>

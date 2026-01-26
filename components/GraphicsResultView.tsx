@@ -1,4 +1,5 @@
 import React, { useState, useMemo } from 'react';
+import { useTranslation } from 'react-i18next';
 import { GraphicsAnalysisResult, VideoMetadata, ProjectMetadata } from '../types';
 import { Download, ArrowLeft, Copy, Check, Database } from 'lucide-react';
 import { copyToClipboard } from '../utils/tableUtils';
@@ -35,6 +36,7 @@ const GraphicsResultView: React.FC<GraphicsResultViewProps> = ({
   onBack,
   onSave,
 }) => {
+  const { t } = useTranslation();
   const [copied, setCopied] = useState(false);
   const [isSaved, setIsSaved] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
@@ -83,15 +85,15 @@ const GraphicsResultView: React.FC<GraphicsResultViewProps> = ({
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
-        <button onClick={onBack} className="flex items-center gap-2 text-gray-400 hover:text-white transition-colors"><ArrowLeft size={20} />Back</button>
+        <button onClick={onBack} className="flex items-center gap-2 text-gray-400 hover:text-white transition-colors"><ArrowLeft size={20} />{t('common.back', 'Back')}</button>
         <div className="flex gap-2">
-          <button onClick={handleCopyTable} className="flex items-center gap-2 px-4 py-2 bg-indigo-600 hover:bg-indigo-700 rounded-lg">{copied ? <Check size={18} /> : <Copy size={18} />}{copied ? 'Copied!' : 'Copy Table'}</button>
+          <button onClick={handleCopyTable} className="flex items-center gap-2 px-4 py-2 bg-indigo-600 hover:bg-indigo-700 rounded-lg">{copied ? <Check size={18} /> : <Copy size={18} />}{copied ? t('actions.copied', 'Copied!') : t('actions.copyTable', 'Copy Table')}</button>
 
           <button
             onClick={() => setShowExportModal(true)}
             className="flex items-center gap-2 px-4 py-2 bg-blue-600 hover:bg-blue-700 rounded-lg text-white font-semibold"
           >
-            <Download size={18} />Export Options...
+            <Download size={18} />{t('export.options', 'Export Options...')}
           </button>
 
           <ExportModal
@@ -104,20 +106,20 @@ const GraphicsResultView: React.FC<GraphicsResultViewProps> = ({
             frameRate={videoMetadata?.frameRate || 25}
           />
 
-          <button onClick={handleSaveToDatabase} disabled={isSaved || isSaving} className="flex items-center gap-2 px-4 py-2 bg-teal-600 hover:bg-teal-700 rounded-lg disabled:bg-gray-500 disabled:cursor-not-allowed">{isSaved ? <Check size={18} /> : <Database size={18} />}{isSaved ? 'Saved' : isSaving ? 'Saving...' : 'Save'}</button>
+          <button onClick={handleSaveToDatabase} disabled={isSaved || isSaving} className="flex items-center gap-2 px-4 py-2 bg-teal-600 hover:bg-teal-700 rounded-lg disabled:bg-gray-500 disabled:cursor-not-allowed">{isSaved ? <Check size={18} /> : <Database size={18} />}{isSaved ? t('common.saved', 'Saved') : isSaving ? t('common.saving', 'Saving...') : t('common.save', 'Save')}</button>
         </div>
       </div>
 
       <div className="text-center">
-        <h2 className="text-3xl font-bold text-transparent bg-clip-text bg-gradient-to-r from-purple-400 to-indigo-500">Graphics & Lower Thirds Log</h2>
+        <h2 className="text-3xl font-bold text-transparent bg-clip-text bg-gradient-to-r from-purple-400 to-indigo-500">{t('graphics.title', 'Graphics & Lower Thirds Log')}</h2>
         <p className="text-gray-400 mt-2">Program: {programTitle}</p>
         {result.runtime && <p className="text-gray-500 text-sm">Runtime: {result.runtime}</p>}
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-        <div className="bg-gray-700/50 p-4 rounded-lg text-center"><div className="text-3xl font-bold text-purple-400">{result.graphics?.length || 0}</div><div className="text-gray-400 text-sm mt-1">Graphics</div></div>
-        <div className="bg-gray-700/50 p-4 rounded-lg text-center"><div className="text-3xl font-bold text-indigo-400">{result.lowerThirds?.length || 0}</div><div className="text-gray-400 text-sm mt-1">Lower Thirds</div></div>
-        <div className="bg-gray-700/50 p-4 rounded-lg text-center"><div className="text-3xl font-bold text-blue-400">{combinedItems.length}</div><div className="text-gray-400 text-sm mt-1">Total Items</div></div>
+        <div className="bg-gray-700/50 p-4 rounded-lg text-center"><div className="text-3xl font-bold text-purple-400">{result.graphics?.length || 0}</div><div className="text-gray-400 text-sm mt-1">{t('graphics.graphics', 'Graphics')}</div></div>
+        <div className="bg-gray-700/50 p-4 rounded-lg text-center"><div className="text-3xl font-bold text-indigo-400">{result.lowerThirds?.length || 0}</div><div className="text-gray-400 text-sm mt-1">{t('graphics.lowerThirds', 'Lower Thirds')}</div></div>
+        <div className="bg-gray-700/50 p-4 rounded-lg text-center"><div className="text-3xl font-bold text-blue-400">{combinedItems.length}</div><div className="text-gray-400 text-sm mt-1">{t('graphics.totalItems', 'Total Items')}</div></div>
       </div>
 
       <div className="overflow-x-auto">
@@ -151,7 +153,7 @@ const GraphicsResultView: React.FC<GraphicsResultViewProps> = ({
         </table>
       </div>
 
-      <div className="flex justify-center gap-4 pt-6 border-t border-gray-700/50"><button onClick={onReset} className="px-6 py-3 bg-gray-700 hover:bg-gray-600 rounded-lg transition-colors font-medium">Analyze Another Video</button></div>
+      <div className="flex justify-center gap-4 pt-6 border-t border-gray-700/50"><button onClick={onReset} className="px-6 py-3 bg-gray-700 hover:bg-gray-600 rounded-lg transition-colors font-medium">{t('actions.analyzeAnother', 'Analyze Another Video')}</button></div>
     </div>
   );
 };
