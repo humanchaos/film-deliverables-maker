@@ -1,4 +1,5 @@
 import React, { useState, useRef, useEffect, useCallback } from 'react';
+import { useTranslation } from 'react-i18next';
 import { TranscriptionResult, VideoMetadata, ProjectMetadata, TranscriptionSegment, GraphicsAnalysisResult, Bio } from '../types';
 import { copyToClipboard } from '../utils/tableUtils';
 import { Check, FileText, Download, Save, Wand2 } from 'lucide-react';
@@ -79,6 +80,7 @@ const TranscriptionResultView: React.FC<TranscriptionResultViewProps> = ({
   onBack,
   onSave,
 }) => {
+  const { t } = useTranslation();
   const [isCopied, setIsCopied] = useState(false);
   const [showExportModal, setShowExportModal] = useState(false);
   const videoRef = useRef<HTMLVideoElement>(null);
@@ -270,17 +272,17 @@ const TranscriptionResultView: React.FC<TranscriptionResultViewProps> = ({
         <div className="flex flex-wrap items-center justify-between mb-4 gap-4">
           <div>
             <h3 className="text-2xl font-bold text-white mb-2 flex items-center gap-2">
-              Transcription Verification
-              {isDirty && <span className="text-xs bg-amber-500 text-black px-2 py-0.5 rounded font-bold uppercase">Unsaved Changes</span>}
+              {t('transcription.verification', 'Transcription Verification')}
+              {isDirty && <span className="text-xs bg-amber-500 text-black px-2 py-0.5 rounded font-bold uppercase">{t('common.unsavedChanges', 'Unsaved Changes')}</span>}
             </h3>
-            <p className="text-gray-400">{segments.length} segments • Tab to Verify • J-K-L Navigation</p>
+            <p className="text-gray-400">{segments.length} {t('transcription.segments', 'segments')} • Tab to Verify • J-K-L Navigation</p>
           </div>
           <div className="flex gap-2">
             <button onClick={save} disabled={!isDirty} className={`px-4 py-2 text-white rounded-lg font-semibold flex items-center gap-2 ${isDirty ? 'bg-green-600 hover:bg-green-500' : 'bg-gray-700 opacity-50 cursor-not-allowed'}`}>
               <Save size={18} />
-              {isDirty ? 'Save Changes' : 'Saved'}
+              {isDirty ? t('common.saveChanges', 'Save Changes') : t('common.saved', 'Saved')}
             </button>
-            <button onClick={onBack} className="px-4 py-2 bg-gray-700 hover:bg-gray-600 text-white rounded-lg font-semibold">Exit</button>
+            <button onClick={onBack} className="px-4 py-2 bg-gray-700 hover:bg-gray-600 text-white rounded-lg font-semibold">{t('common.exit', 'Exit')}</button>
           </div>
         </div>
 
@@ -298,13 +300,13 @@ const TranscriptionResultView: React.FC<TranscriptionResultViewProps> = ({
         {/* Buttons Grid - Flex Wrap for Responsive Layout */}
         <div className="flex flex-wrap gap-3">
           <button onClick={handleCopy} className="flex-1 min-w-[140px] px-4 py-2 bg-purple-600 hover:bg-purple-700 text-white rounded-lg font-semibold flex items-center justify-center gap-2">
-            {isCopied ? <><Check size={18} />Copied!</> : <><FileText size={18} />Copy Text</>}
+            {isCopied ? <><Check size={18} />{t('actions.copied', 'Copied!')}</> : <><FileText size={18} />{t('actions.copyText', 'Copy Text')}</>}
           </button>
 
           {(graphicsResult || bioResult) && (
             <button onClick={() => handleAutoAssign(false)} className="flex-1 min-w-[200px] px-4 py-2 bg-pink-600 hover:bg-pink-700 text-white rounded-lg font-semibold flex items-center justify-center gap-2">
               <Wand2 size={18} />
-              Auto-Assign Names
+              {t('transcription.autoAssign', 'Auto-Assign Names')}
             </button>
           )}
 
@@ -313,7 +315,7 @@ const TranscriptionResultView: React.FC<TranscriptionResultViewProps> = ({
             className="flex-1 min-w-[140px] px-4 py-2 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white rounded-lg font-semibold flex items-center justify-center gap-2"
           >
             <Download size={20} />
-            Export Options...
+            {t('export.options', 'Export Options...')}
           </button>
         </div>
       </div>
@@ -333,12 +335,12 @@ const TranscriptionResultView: React.FC<TranscriptionResultViewProps> = ({
           <table className="w-full border-collapse">
             <thead className="bg-gray-800 border-b border-gray-700">
               <tr>
-                <th className="px-4 py-3 text-left text-sm font-semibold text-gray-300 w-24">Preview</th>
-                <th className="px-4 py-3 text-left text-sm font-semibold text-gray-300 w-32">Start</th>
-                <th className="px-4 py-3 text-left text-sm font-semibold text-gray-300 w-32">End</th>
-                <th className="px-4 py-3 text-left text-sm font-semibold text-gray-300 w-48">Speaker</th>
-                <th className="px-4 py-3 text-left text-sm font-semibold text-gray-300 w-24">Status</th>
-                <th className="px-4 py-3 text-left text-sm font-semibold text-gray-300">Transcript</th>
+                <th className="px-4 py-3 text-left text-sm font-semibold text-gray-300 w-24">{t('table.preview', 'Preview')}</th>
+                <th className="px-4 py-3 text-left text-sm font-semibold text-gray-300 w-32">{t('table.start', 'Start')}</th>
+                <th className="px-4 py-3 text-left text-sm font-semibold text-gray-300 w-32">{t('table.end', 'End')}</th>
+                <th className="px-4 py-3 text-left text-sm font-semibold text-gray-300 w-48">{t('table.speaker', 'Speaker')}</th>
+                <th className="px-4 py-3 text-left text-sm font-semibold text-gray-300 w-24">{t('table.status', 'Status')}</th>
+                <th className="px-4 py-3 text-left text-sm font-semibold text-gray-300">{t('table.transcript', 'Transcript')}</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-700">

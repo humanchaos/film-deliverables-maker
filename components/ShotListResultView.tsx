@@ -1,4 +1,5 @@
 import React, { useState, useRef, useEffect, useCallback } from 'react';
+import { useTranslation } from 'react-i18next';
 import { ShotListResult, VideoMetadata, ProjectMetadata, Shot } from '../types';
 import { parseTimecode } from '../utils/tableUtils';
 import { Download, Save } from 'lucide-react';
@@ -66,6 +67,7 @@ const ShotListResultView: React.FC<ShotListResultViewProps> = ({
   videoFileName,
   projectMetadata,
 }) => {
+  const { t } = useTranslation();
   const [showExportModal, setShowExportModal] = useState(false);
   const videoRef = useRef<HTMLVideoElement>(null);
 
@@ -156,17 +158,17 @@ const ShotListResultView: React.FC<ShotListResultViewProps> = ({
         <div className="flex items-center justify-between mb-4">
           <div>
             <h3 className="text-2xl font-bold text-white mb-2 flex items-center gap-2">
-              Verification Station
-              {isDirty && <span className="text-xs bg-amber-500 text-black px-2 py-0.5 rounded font-bold uppercase">Unsaved Changes</span>}
+              {t('shotlist.verification', 'Verification Station')}
+              {isDirty && <span className="text-xs bg-amber-500 text-black px-2 py-0.5 rounded font-bold uppercase">{t('common.unsavedChanges', 'Unsaved Changes')}</span>}
             </h3>
-            <p className="text-gray-400">{shots.length} shots • Tab to Verify • J-K-L Navigation</p>
+            <p className="text-gray-400">{shots.length} {t('shotlist.shots', 'shots')} • Tab to Verify • J-K-L Navigation</p>
           </div>
           <div className="flex gap-2">
             <button onClick={save} disabled={!isDirty} className={`px-4 py-2 text-white rounded-lg font-semibold flex items-center gap-2 ${isDirty ? 'bg-green-600 hover:bg-green-500' : 'bg-gray-700 opacity-50 cursor-not-allowed'}`}>
               <Save size={18} />
-              {isDirty ? 'Save Changes' : 'Saved'}
+              {isDirty ? t('common.saveChanges', 'Save Changes') : t('common.saved', 'Saved')}
             </button>
-            <button onClick={onBack} className="px-4 py-2 bg-gray-700 hover:bg-gray-600 text-white rounded-lg font-semibold">Exit</button>
+            <button onClick={onBack} className="px-4 py-2 bg-gray-700 hover:bg-gray-600 text-white rounded-lg font-semibold">{t('common.exit', 'Exit')}</button>
           </div>
         </div>
 
@@ -187,7 +189,7 @@ const ShotListResultView: React.FC<ShotListResultViewProps> = ({
             className="w-full px-4 py-2 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white rounded-lg font-semibold flex items-center justify-center gap-2"
           >
             <Download size={20} />
-            Export Options...
+            {t('export.options', 'Export Options...')}
           </button>
           <ExportModal
             isOpen={showExportModal}
@@ -207,14 +209,14 @@ const ShotListResultView: React.FC<ShotListResultViewProps> = ({
           <table className="w-full border-collapse">
             <thead className="bg-gray-800 border-b border-gray-700">
               <tr>
-                <th className="px-4 py-3 text-left text-sm font-semibold text-gray-300 w-24">Preview</th>
-                <th className="px-4 py-3 text-left text-sm font-semibold text-gray-300 w-12">Nr</th>
-                <th className="px-4 py-3 text-left text-sm font-semibold text-gray-300 min-w-[110px]">TC In</th>
-                <th className="px-4 py-3 text-left text-sm font-semibold text-gray-300 min-w-[110px]">TC Out</th>
-                <th className="px-4 py-3 text-left text-sm font-semibold text-gray-300 min-w-[110px]">Dur</th>
-                <th className="px-4 py-3 text-left text-sm font-semibold text-gray-300">Description</th>
-                <th className="px-4 py-3 text-left text-sm font-semibold text-gray-300">Action</th>
-                <th className="px-4 py-3 text-left text-sm font-semibold text-gray-300">Audio</th>
+                <th className="px-4 py-3 text-left text-sm font-semibold text-gray-300 w-24">{t('table.preview', 'Preview')}</th>
+                <th className="px-4 py-3 text-left text-sm font-semibold text-gray-300 w-12">{t('table.nr', 'Nr')}</th>
+                <th className="px-4 py-3 text-left text-sm font-semibold text-gray-300 min-w-[110px]">{t('table.tcIn', 'TC In')}</th>
+                <th className="px-4 py-3 text-left text-sm font-semibold text-gray-300 min-w-[110px]">{t('table.tcOut', 'TC Out')}</th>
+                <th className="px-4 py-3 text-left text-sm font-semibold text-gray-300 min-w-[110px]">{t('table.duration', 'Dur')}</th>
+                <th className="px-4 py-3 text-left text-sm font-semibold text-gray-300">{t('table.description', 'Description')}</th>
+                <th className="px-4 py-3 text-left text-sm font-semibold text-gray-300">{t('table.action', 'Action')}</th>
+                <th className="px-4 py-3 text-left text-sm font-semibold text-gray-300">{t('table.audio', 'Audio')}</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-700">

@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { useTranslation } from 'react-i18next';
 import { X, FileText, FileJson, FileSpreadsheet, Film, Clapperboard, MessageSquare, Layout } from 'lucide-react';
 import { Shot, TranscriptionResult, ProjectMetadata, ShotListResult, GraphicsAnalysisResult, SpeciesSighting } from '../types';
 import { generateEDL, generateFCPXML, generateResolveCSV, downloadNLEFile } from '../services/nleExportService';
@@ -40,6 +41,7 @@ const ExportModal: React.FC<ExportModalProps> = ({
     frameRate,
     jobId
 }) => {
+    const { t } = useTranslation();
     const [templates, setTemplates] = useState<TemplateSummary[]>([]);
     const [loadingTemplates, setLoadingTemplates] = useState(false);
 
@@ -206,8 +208,8 @@ const ExportModal: React.FC<ExportModalProps> = ({
             <div className="bg-gray-900 border border-gray-700 rounded-xl shadow-2xl max-w-2xl w-full overflow-hidden" onClick={e => e.stopPropagation()}>
                 <div className="flex items-center justify-between p-6 border-b border-gray-800">
                     <div>
-                        <h3 className="text-xl font-bold text-white">Export Options</h3>
-                        <p className="text-sm text-gray-400">Select a format to download</p>
+                        <h3 className="text-xl font-bold text-white">{t('export.title', 'Export Options')}</h3>
+                        <p className="text-sm text-gray-400">{t('export.selectFormat', 'Select a format to download')}</p>
                     </div>
                     <button onClick={onClose} className="text-gray-400 hover:text-white transition-colors">
                         <X size={24} />
@@ -238,7 +240,7 @@ const ExportModal: React.FC<ExportModalProps> = ({
                         <div className="border-t border-gray-800 pt-4">
                             <h4 className="text-sm font-semibold text-gray-300 mb-3 flex items-center gap-2">
                                 <Layout size={16} className="text-purple-400" />
-                                Custom Templates
+                                {t('export.customTemplates', 'Custom Templates')}
                             </h4>
                             <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
                                 {templates.map(t => (
@@ -261,14 +263,14 @@ const ExportModal: React.FC<ExportModalProps> = ({
 
                 {loadingTemplates && jobId && (
                     <div className="px-6 pb-4">
-                        <p className="text-xs text-gray-500 text-center">Loading templates...</p>
+                        <p className="text-xs text-gray-500 text-center">{t('export.loadingTemplates', 'Loading templates...')}</p>
                     </div>
                 )}
 
                 {projectMetadata.timecodeStart && projectMetadata.timecodeStart !== '00:00:00:00' && (
                     <div className="bg-gray-800/50 p-4 text-center border-t border-gray-800">
                         <p className="text-xs text-gray-400">
-                            Timecode Offset Active: <span className="text-blue-400 font-mono">{projectMetadata.timecodeStart}</span>
+                            {t('export.timecodeOffset', 'Timecode Offset Active')}: <span className="text-blue-400 font-mono">{projectMetadata.timecodeStart}</span>
                         </p>
                     </div>
                 )}

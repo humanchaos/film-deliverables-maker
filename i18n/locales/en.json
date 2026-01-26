@@ -13,7 +13,11 @@
         "next": "Next",
         "continue": "Continue",
         "yes": "Yes",
-        "no": "No"
+        "no": "No",
+        "unsavedChanges": "Unsaved Changes",
+        "saveChanges": "Save Changes",
+        "saved": "Saved",
+        "exit": "Exit"
     },
     "nav": {
         "dashboard": "Dashboard",
@@ -105,8 +109,33 @@
         "download": "Download",
         "copy": "Copy",
         "copied": "Copied!",
+        "copyText": "Copy Text",
         "retry": "Retry",
         "startOver": "Start Over"
+    },
+    "table": {
+        "preview": "Preview",
+        "start": "Start",
+        "end": "End",
+        "speaker": "Speaker",
+        "status": "Status",
+        "transcript": "Transcript",
+        "nr": "Nr",
+        "tcIn": "TC In",
+        "tcOut": "TC Out",
+        "duration": "Dur",
+        "description": "Description",
+        "action": "Action",
+        "audio": "Audio"
+    },
+    "transcription": {
+        "verification": "Transcription Verification",
+        "segments": "segments",
+        "autoAssign": "Auto-Assign Names"
+    },
+    "shotlist": {
+        "verification": "Verification Station",
+        "shots": "shots"
     },
     "speakers": {
         "title": "Manage Speakers",

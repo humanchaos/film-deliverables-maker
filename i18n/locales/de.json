@@ -13,7 +13,11 @@
         "next": "Weiter",
         "continue": "Fortfahren",
         "yes": "Ja",
-        "no": "Nein"
+        "no": "Nein",
+        "unsavedChanges": "Ungespeicherte Änderungen",
+        "saveChanges": "Änderungen speichern",
+        "saved": "Gespeichert",
+        "exit": "Beenden"
     },
     "nav": {
         "dashboard": "Dashboard",
@@ -105,8 +109,33 @@
         "download": "Herunterladen",
         "copy": "Kopieren",
         "copied": "Kopiert!",
+        "copyText": "Text kopieren",
         "retry": "Erneut versuchen",
         "startOver": "Neu starten"
+    },
+    "table": {
+        "preview": "Vorschau",
+        "start": "Start",
+        "end": "Ende",
+        "speaker": "Sprecher",
+        "status": "Status",
+        "transcript": "Transkript",
+        "nr": "Nr",
+        "tcIn": "TC In",
+        "tcOut": "TC Out",
+        "duration": "Dauer",
+        "description": "Beschreibung",
+        "action": "Aktion",
+        "audio": "Audio"
+    },
+    "transcription": {
+        "verification": "Transkriptions-Verifizierung",
+        "segments": "Segmente",
+        "autoAssign": "Namen automatisch zuweisen"
+    },
+    "shotlist": {
+        "verification": "Verifizierungs-Station",
+        "shots": "Einstellungen"
     },
     "speakers": {
         "title": "Sprecher verwalten",
