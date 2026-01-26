@@ -1,4 +1,5 @@
 import React, { useState, useRef } from 'react';
+import { useTranslation } from 'react-i18next';
 import { Upload, FileText, ArrowRight, RefreshCw } from 'lucide-react';
 
 interface TemplateConverterInputViewProps {
@@ -9,6 +10,7 @@ interface TemplateConverterInputViewProps {
 const TemplateConverterInputView: React.FC<TemplateConverterInputViewProps> = ({ onConvert, onBack }) => {
     const [sourceFile, setSourceFile] = useState<File | null>(null);
     const [targetFile, setTargetFile] = useState<File | null>(null);
+    const { t } = useTranslation();
     const sourceInputRef = useRef<HTMLInputElement>(null);
     const targetInputRef = useRef<HTMLInputElement>(null);
 
@@ -34,7 +36,7 @@ const TemplateConverterInputView: React.FC<TemplateConverterInputViewProps> = ({
         <div className="max-w-4xl mx-auto space-y-8 animate-fadeIn">
             <div className="text-center mb-8">
                 <h2 className="text-3xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-orange-400 to-amber-600 mb-2">
-                    Template Converter
+                    {t('input.templateConverter.title', 'Template Converter')}
                 </h2>
                 <p className="text-gray-400">
                     Upload your content source and a target template. AI will migrate the content to match the new layout.
@@ -147,7 +149,7 @@ const TemplateConverterInputView: React.FC<TemplateConverterInputViewProps> = ({
                     onClick={onBack}
                     className="px-6 py-3 rounded-lg border border-gray-600 text-gray-300 hover:bg-gray-800 transition-colors"
                 >
-                    Back
+                    {t('common.back', 'Back')}
                 </button>
                 <button
                     onClick={handleStart}
@@ -160,7 +162,7 @@ const TemplateConverterInputView: React.FC<TemplateConverterInputViewProps> = ({
           `}
                 >
                     <RefreshCw className={sourceFile && targetFile ? "animate-pulse" : ""} size={20} />
-                    Convert Format
+                    {t('input.templateConverter.convert', 'Convert Format')}
                 </button>
             </div>
         </div>

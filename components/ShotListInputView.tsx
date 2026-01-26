@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { useTranslation } from 'react-i18next';
 
 interface ShotListInputViewProps {
   onStartAnalysis: (language: string, frameRate: number) => void;
@@ -9,6 +10,7 @@ const ShotListInputView: React.FC<ShotListInputViewProps> = ({
   onStartAnalysis,
   onBack,
 }) => {
+  const { t } = useTranslation();
   const [language, setLanguage] = useState('English');
   const [frameRate, setFrameRate] = useState(25);
 
@@ -20,9 +22,9 @@ const ShotListInputView: React.FC<ShotListInputViewProps> = ({
     <div className="space-y-6">
       <div className="bg-gray-900/50 rounded-lg p-8 border border-gray-700">
         <h3 className="text-2xl font-bold text-gray-200 mb-4">
-          Shot List Generation
+          {t('input.shotlist.title', 'Shot List Generation')}
         </h3>
-        
+
         <div className="space-y-6 mb-6">
           <div className="bg-cyan-900/20 border border-cyan-500/30 rounded-lg p-4">
             <p className="text-gray-300 text-sm leading-relaxed">
@@ -40,7 +42,7 @@ const ShotListInputView: React.FC<ShotListInputViewProps> = ({
           <div className="space-y-4">
             <div>
               <label className="block text-sm font-medium text-gray-300 mb-2">
-                Description Language
+                {t('input.shotlist.language', 'Description Language')}
               </label>
               <select
                 value={language}
@@ -60,7 +62,7 @@ const ShotListInputView: React.FC<ShotListInputViewProps> = ({
 
             <div>
               <label className="block text-sm font-medium text-gray-300 mb-2">
-                Frame Rate (FPS)
+                {t('input.shotlist.frameRate', 'Frame Rate (FPS)')}
               </label>
               <select
                 value={frameRate}
@@ -82,13 +84,13 @@ const ShotListInputView: React.FC<ShotListInputViewProps> = ({
             onClick={onBack}
             className="px-6 py-3 bg-gray-700 hover:bg-gray-600 text-white rounded-lg font-semibold transition-all duration-200"
           >
-            Back
+            {t('common.back', 'Back')}
           </button>
           <button
             onClick={handleStart}
             className="flex-1 px-6 py-3 bg-gradient-to-r from-cyan-600 to-sky-600 hover:from-cyan-700 hover:to-sky-700 text-white rounded-lg font-semibold transition-all duration-200 shadow-lg hover:shadow-cyan-500/50"
           >
-            Generate Shot List
+            {t('input.shotlist.generate', 'Generate Shot List')}
           </button>
         </div>
       </div>

@@ -1,4 +1,5 @@
 import React from 'react';
+import { useTranslation } from 'react-i18next';
 import { FaunaConfig } from '../types';
 
 interface FaunaInputViewProps {
@@ -14,7 +15,8 @@ const FaunaInputView: React.FC<FaunaInputViewProps> = ({
   config,
   onConfigChange,
 }) => {
-  
+  const { t } = useTranslation();
+
   const languages = [
     'English', 'Spanish', 'French', 'German', 'Japanese',
     'Italian', 'Portuguese', 'Chinese', 'Dutch', 'Russian',
@@ -35,9 +37,9 @@ const FaunaInputView: React.FC<FaunaInputViewProps> = ({
           <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
           </svg>
-          Back
+          {t('common.back', 'Back')}
         </button>
-        <h2 className="text-2xl font-bold text-gray-200">Fauna Identification</h2>
+        <h2 className="text-2xl font-bold text-gray-200">{t('input.fauna.title', 'Fauna Identification')}</h2>
         <div className="w-20"></div>
       </div>
 
@@ -72,7 +74,7 @@ const FaunaInputView: React.FC<FaunaInputViewProps> = ({
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
         <div>
           <label htmlFor="primary-language" className="block text-sm font-medium text-gray-300 mb-2">
-            Primary Language <span className="text-amber-400">*</span>
+            {t('input.fauna.primaryLanguage', 'Primary Language')} <span className="text-amber-400">*</span>
           </label>
           <select
             id="primary-language"
@@ -87,7 +89,7 @@ const FaunaInputView: React.FC<FaunaInputViewProps> = ({
 
         <div>
           <label htmlFor="secondary-language" className="block text-sm font-medium text-gray-300 mb-2">
-            Secondary Language <span className="text-amber-400">*</span>
+            {t('input.fauna.secondaryLanguage', 'Secondary Language')} <span className="text-amber-400">*</span>
           </label>
           <select
             id="secondary-language"
@@ -128,7 +130,7 @@ const FaunaInputView: React.FC<FaunaInputViewProps> = ({
           onClick={handleSubmit}
           className="px-10 py-3 font-bold text-white bg-gradient-to-r from-amber-600 to-orange-600 rounded-lg hover:from-amber-700 hover:to-orange-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-offset-gray-800 focus:ring-amber-500 transition-all duration-200 shadow-lg transform hover:scale-105"
         >
-          Identify Species
+          {t('input.fauna.identify', 'Identify Species')}
         </button>
       </div>
     </div>

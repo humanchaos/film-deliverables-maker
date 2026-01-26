@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { useTranslation } from 'react-i18next';
 
 interface BioInputViewProps {
   onGenerate: (
@@ -10,6 +11,7 @@ interface BioInputViewProps {
 }
 
 const BioInputView: React.FC<BioInputViewProps> = ({ onGenerate, onBack }) => {
+  const { t } = useTranslation();
   const [mode, setMode] = useState<'auto' | 'manual'>('auto');
   const [language, setLanguage] = useState('English');
   const [videoTopic, setVideoTopic] = useState('');
@@ -54,35 +56,33 @@ const BioInputView: React.FC<BioInputViewProps> = ({ onGenerate, onBack }) => {
           <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
           </svg>
-          Back
+          {t('common.back', 'Back')}
         </button>
-        <h2 className="text-2xl font-bold text-gray-200">Bio Generation</h2>
+        <h2 className="text-2xl font-bold text-gray-200">{t('input.bio.title', 'Bio Generation')}</h2>
         <div className="w-20"></div>
       </div>
 
       {/* Mode Selection */}
       <div className="bg-gray-900/50 rounded-lg p-4 border border-gray-700">
-        <label className="block text-sm font-medium text-gray-300 mb-3">Detection Mode</label>
+        <label className="block text-sm font-medium text-gray-300 mb-3">{t('input.bio.detectionMode', 'Detection Mode')}</label>
         <div className="flex gap-3">
           <button
             onClick={() => setMode('auto')}
-            className={`flex-1 py-3 px-4 rounded-lg font-medium transition-all ${
-              mode === 'auto'
+            className={`flex-1 py-3 px-4 rounded-lg font-medium transition-all ${mode === 'auto'
                 ? 'bg-indigo-600 text-white shadow-lg'
                 : 'bg-gray-700 text-gray-300 hover:bg-gray-600'
-            }`}
+              }`}
           >
-            Auto-Detect Talent
+            {t('input.bio.autoDetect', 'Auto-Detect Talent')}
           </button>
           <button
             onClick={() => setMode('manual')}
-            className={`flex-1 py-3 px-4 rounded-lg font-medium transition-all ${
-              mode === 'manual'
+            className={`flex-1 py-3 px-4 rounded-lg font-medium transition-all ${mode === 'manual'
                 ? 'bg-indigo-600 text-white shadow-lg'
                 : 'bg-gray-700 text-gray-300 hover:bg-gray-600'
-            }`}
+              }`}
           >
-            Enter Manually
+            {t('input.bio.enterManually', 'Enter Manually')}
           </button>
         </div>
       </div>
@@ -90,7 +90,7 @@ const BioInputView: React.FC<BioInputViewProps> = ({ onGenerate, onBack }) => {
       {/* Language Selection */}
       <div>
         <label htmlFor="bio-language" className="block text-sm font-medium text-gray-300 mb-1">
-          Biography Language
+          {t('input.bio.language', 'Biography Language')}
         </label>
         <select
           id="bio-language"
@@ -211,7 +211,7 @@ const BioInputView: React.FC<BioInputViewProps> = ({ onGenerate, onBack }) => {
           disabled={isSubmitDisabled}
           className="px-10 py-3 font-bold text-white bg-gradient-to-r from-indigo-600 to-blue-600 rounded-lg hover:from-indigo-700 hover:to-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-offset-gray-800 focus:ring-indigo-500 transition-all duration-200 shadow-lg disabled:from-gray-600 disabled:to-gray-600 disabled:text-gray-400 disabled:cursor-not-allowed transform hover:scale-105 disabled:hover:scale-100"
         >
-          Generate Biographies
+          {t('input.bio.generate', 'Generate Biographies')}
         </button>
         {isSubmitDisabled && (
           <p className="text-sm text-gray-400 mt-3">

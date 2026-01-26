@@ -1,4 +1,5 @@
 import React from 'react';
+import { useTranslation } from 'react-i18next';
 
 interface TranscriptionInputViewProps {
   onStartTranscription: () => void;
@@ -9,13 +10,14 @@ const TranscriptionInputView: React.FC<TranscriptionInputViewProps> = ({
   onStartTranscription,
   onBack,
 }) => {
+  const { t } = useTranslation();
   return (
     <div className="space-y-6">
       <div className="bg-gray-900/50 rounded-lg p-8 border border-gray-700">
         <h3 className="text-2xl font-bold text-gray-200 mb-4">
-          Audio/Video Transcription
+          {t('input.transcription.title', 'Audio/Video Transcription')}
         </h3>
-        
+
         <div className="space-y-4 mb-6">
           <div className="bg-blue-900/20 border border-blue-500/30 rounded-lg p-4">
             <p className="text-gray-300 text-sm leading-relaxed">
@@ -48,13 +50,13 @@ const TranscriptionInputView: React.FC<TranscriptionInputViewProps> = ({
             onClick={onBack}
             className="px-6 py-3 bg-gray-700 hover:bg-gray-600 text-white rounded-lg font-semibold transition-all duration-200"
           >
-            Back
+            {t('common.back', 'Back')}
           </button>
           <button
             onClick={onStartTranscription}
             className="flex-1 px-6 py-3 bg-gradient-to-r from-pink-600 to-rose-600 hover:from-pink-700 hover:to-rose-700 text-white rounded-lg font-semibold transition-all duration-200 shadow-lg hover:shadow-pink-500/50"
           >
-            Start Transcription
+            {t('input.transcription.start', 'Start Transcription')}
           </button>
         </div>
       </div>

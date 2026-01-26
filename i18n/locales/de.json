@@ -169,6 +169,44 @@
         "newConversion": "Neue Konvertierung",
         "downloadMarkdown": "Markdown herunterladen"
     },
+    "input": {
+        "transcription": {
+            "title": "Audio/Video Transkription",
+            "start": "Transkription starten"
+        },
+        "shotlist": {
+            "title": "Einstellungsliste generieren",
+            "language": "Beschreibungssprache",
+            "frameRate": "Bildrate (FPS)",
+            "generate": "Einstellungsliste generieren"
+        },
+        "bio": {
+            "title": "Biografie-Generierung",
+            "detectionMode": "Erkennungsmodus",
+            "autoDetect": "Talent automatisch erkennen",
+            "enterManually": "Manuell eingeben",
+            "language": "Biografie-Sprache",
+            "generate": "Biografien generieren"
+        },
+        "fauna": {
+            "title": "Fauna-Identifikation",
+            "primaryLanguage": "Primärsprache",
+            "secondaryLanguage": "Sekundärsprache",
+            "identify": "Arten identifizieren"
+        },
+        "graphics": {
+            "title": "Grafiken & Bauchbinden Erkennung",
+            "start": "Analyse starten"
+        },
+        "synopsis": {
+            "title": "Synopsis-Konfiguration",
+            "generate": "Synopsis generieren"
+        },
+        "templateConverter": {
+            "title": "Vorlagen-Konverter",
+            "convert": "Format konvertieren"
+        }
+    },
     "speakers": {
         "title": "Sprecher verwalten",
         "hint": "Benennen Sie einen Sprecher um, um die Änderung auf alle Segmente anzuwenden.",

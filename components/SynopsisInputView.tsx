@@ -1,4 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react';
+import { useTranslation } from 'react-i18next';
 import { SynopsisConfig } from '../types';
 
 interface SynopsisInputViewProps {
@@ -14,6 +15,7 @@ const SynopsisInputView: React.FC<SynopsisInputViewProps> = ({
   onConfigChange,
   onBack,
 }) => {
+  const { t } = useTranslation();
   const [writer, setWriter] = useState('');
   const [director, setDirector] = useState('');
   const [keywords, setKeywords] = useState('');
@@ -44,18 +46,18 @@ const SynopsisInputView: React.FC<SynopsisInputViewProps> = ({
           <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
           </svg>
-          Back
+          {t('common.back', 'Back')}
         </button>
-        <h2 className="text-2xl font-bold text-gray-200">Synopsis Configuration</h2>
+        <h2 className="text-2xl font-bold text-gray-200">{t('input.synopsis.title', 'Synopsis Configuration')}</h2>
         <div className="w-20"></div>
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        
+
         {/* Basic Information */}
         <div className="space-y-4">
           <h3 className="text-lg font-semibold text-gray-300">Basic Information</h3>
-          
+
           <div>
             <label htmlFor="writer" className="block text-sm font-medium text-gray-300 mb-1">
               Written by <span className="text-red-400">*</span>
@@ -139,7 +141,7 @@ const SynopsisInputView: React.FC<SynopsisInputViewProps> = ({
           {showAdvanced && (
             <div className="space-y-4 bg-gray-900/50 p-4 rounded-lg border border-gray-700/50">
               <p className="text-xs text-gray-400 mb-3">Customize the length of each synopsis element:</p>
-              
+
               <ConfigControl
                 label="Title Length"
                 value={synopsisConfig.titleMaxChars}
@@ -149,7 +151,7 @@ const SynopsisInputView: React.FC<SynopsisInputViewProps> = ({
                 unit="characters"
                 onChange={(val) => onConfigChange({ ...synopsisConfig, titleMaxChars: val })}
               />
-              
+
               <ConfigControl
                 label="Logline"
                 value={synopsisConfig.loglineMaxWords}
@@ -159,7 +161,7 @@ const SynopsisInputView: React.FC<SynopsisInputViewProps> = ({
                 unit="words"
                 onChange={(val) => onConfigChange({ ...synopsisConfig, loglineMaxWords: val })}
               />
-              
+
               <ConfigControl
                 label="Summary"
                 value={synopsisConfig.summaryMaxWords}
@@ -169,7 +171,7 @@ const SynopsisInputView: React.FC<SynopsisInputViewProps> = ({
                 unit="words"
                 onChange={(val) => onConfigChange({ ...synopsisConfig, summaryMaxWords: val })}
               />
-              
+
               <ConfigControl
                 label="Key Themes"
                 value={synopsisConfig.keyThemesMaxWords}
@@ -179,7 +181,7 @@ const SynopsisInputView: React.FC<SynopsisInputViewProps> = ({
                 unit="words"
                 onChange={(val) => onConfigChange({ ...synopsisConfig, keyThemesMaxWords: val })}
               />
-              
+
               <ConfigControl
                 label="Target Audience"
                 value={synopsisConfig.targetAudienceMaxWords}
@@ -201,7 +203,7 @@ const SynopsisInputView: React.FC<SynopsisInputViewProps> = ({
           disabled={isSubmitDisabled}
           className="px-10 py-3 font-bold text-white bg-gradient-to-r from-purple-600 to-indigo-600 rounded-lg hover:from-purple-700 hover:to-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-offset-gray-800 focus:ring-purple-500 transition-all duration-200 shadow-lg disabled:from-gray-600 disabled:to-gray-600 disabled:text-gray-400 disabled:cursor-not-allowed transform hover:scale-105 disabled:hover:scale-100"
         >
-          Generate Synopsis
+          {t('input.synopsis.generate', 'Generate Synopsis')}
         </button>
         {isSubmitDisabled && (
           <p className="text-sm text-gray-400 mt-3">

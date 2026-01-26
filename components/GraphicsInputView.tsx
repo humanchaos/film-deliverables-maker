@@ -1,4 +1,5 @@
 import React from 'react';
+import { useTranslation } from 'react-i18next';
 
 interface GraphicsInputViewProps {
   onGenerate: () => void;
@@ -9,6 +10,7 @@ const GraphicsInputView: React.FC<GraphicsInputViewProps> = ({
   onGenerate,
   onBack,
 }) => {
+  const { t } = useTranslation();
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between mb-4">
@@ -19,9 +21,9 @@ const GraphicsInputView: React.FC<GraphicsInputViewProps> = ({
           <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
           </svg>
-          Back
+          {t('common.back', 'Back')}
         </button>
-        <h2 className="text-2xl font-bold text-gray-200">Graphics & Lower Thirds Detection</h2>
+        <h2 className="text-2xl font-bold text-gray-200">{t('input.graphics.title', 'Graphics & Lower Thirds Detection')}</h2>
         <div className="w-20"></div>
       </div>
 
@@ -80,7 +82,7 @@ const GraphicsInputView: React.FC<GraphicsInputViewProps> = ({
           onClick={onGenerate}
           className="px-10 py-3 font-bold text-white bg-gradient-to-r from-emerald-600 to-teal-600 rounded-lg hover:from-emerald-700 hover:to-teal-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-offset-gray-800 focus:ring-emerald-500 transition-all duration-200 shadow-lg transform hover:scale-105"
         >
-          Start Analysis
+          {t('input.graphics.start', 'Start Analysis')}
         </button>
         <p className="text-sm text-gray-400 mt-3">
           Analysis time depends on video length (typically 2-5 minutes)

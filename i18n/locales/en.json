@@ -169,6 +169,44 @@
         "newConversion": "New Conversion",
         "downloadMarkdown": "Download Markdown"
     },
+    "input": {
+        "transcription": {
+            "title": "Audio/Video Transcription",
+            "start": "Start Transcription"
+        },
+        "shotlist": {
+            "title": "Shot List Generation",
+            "language": "Description Language",
+            "frameRate": "Frame Rate (FPS)",
+            "generate": "Generate Shot List"
+        },
+        "bio": {
+            "title": "Bio Generation",
+            "detectionMode": "Detection Mode",
+            "autoDetect": "Auto-Detect Talent",
+            "enterManually": "Enter Manually",
+            "language": "Biography Language",
+            "generate": "Generate Biographies"
+        },
+        "fauna": {
+            "title": "Fauna Identification",
+            "primaryLanguage": "Primary Language",
+            "secondaryLanguage": "Secondary Language",
+            "identify": "Identify Species"
+        },
+        "graphics": {
+            "title": "Graphics & Lower Thirds Detection",
+            "start": "Start Analysis"
+        },
+        "synopsis": {
+            "title": "Synopsis Configuration",
+            "generate": "Generate Synopsis"
+        },
+        "templateConverter": {
+            "title": "Template Converter",
+            "convert": "Convert Format"
+        }
+    },
     "speakers": {
         "title": "Manage Speakers",
         "hint": "Rename a speaker to apply the change to all segments.",
