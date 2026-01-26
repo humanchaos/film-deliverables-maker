@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 
 interface ShotListInputViewProps {
-  onStartAnalysis: (language: string, frameRate: number) => void;
+  onStartAnalysis: (language: string, frameRate: number, minShotDuration: number) => void;
   onBack: () => void;
 }
 
@@ -13,9 +13,10 @@ const ShotListInputView: React.FC<ShotListInputViewProps> = ({
   const { t } = useTranslation();
   const [language, setLanguage] = useState('English');
   const [frameRate, setFrameRate] = useState(25);
+  const [minShotDuration, setMinShotDuration] = useState(0); // 0 = no filter
 
   const handleStart = () => {
-    onStartAnalysis(language, frameRate);
+    onStartAnalysis(language, frameRate, minShotDuration);
   };
 
   return (
@@ -75,6 +76,30 @@ const ShotListInputView: React.FC<ShotListInputViewProps> = ({
                 <option value="50">50 fps</option>
                 <option value="60">60 fps</option>
               </select>
+            </div>
+
+            {/* Minimum Shot Duration Filter */}
+            <div>
+              <label className="block text-sm font-medium text-gray-300 mb-2">
+                {t('input.shotlist.minDuration', 'Minimum Shot Duration')}
+              </label>
+              <div className="flex items-center gap-4">
+                <input
+                  type="range"
+                  min="0"
+                  max="3"
+                  step="0.5"
+                  value={minShotDuration}
+                  onChange={(e) => setMinShotDuration(Number(e.target.value))}
+                  className="flex-1 h-2 bg-gray-700 rounded-lg appearance-none cursor-pointer accent-cyan-500"
+                />
+                <span className="text-cyan-400 font-mono w-16 text-right">
+                  {minShotDuration === 0 ? t('common.off', 'Off') : `${minShotDuration}s`}
+                </span>
+              </div>
+              <p className="text-xs text-gray-500 mt-1">
+                {t('input.shotlist.minDurationHint', 'Filter out shots shorter than this duration. Set to Off to include all shots.')}
+              </p>
             </div>
           </div>
         </div>

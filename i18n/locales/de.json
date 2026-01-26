@@ -178,6 +178,8 @@
             "title": "Einstellungsliste generieren",
             "language": "Beschreibungssprache",
             "frameRate": "Bildrate (FPS)",
+            "minDuration": "Mindest-Einstellungsdauer",
+            "minDurationHint": "Einstellungen kürzer als diese Dauer herausfiltern. Auf Aus setzen, um alle einzuschließen.",
             "generate": "Einstellungsliste generieren"
         },
         "bio": {

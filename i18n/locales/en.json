@@ -178,6 +178,8 @@
             "title": "Shot List Generation",
             "language": "Description Language",
             "frameRate": "Frame Rate (FPS)",
+            "minDuration": "Minimum Shot Duration",
+            "minDurationHint": "Filter out shots shorter than this duration. Set to Off to include all shots.",
             "generate": "Generate Shot List"
         },
         "bio": {

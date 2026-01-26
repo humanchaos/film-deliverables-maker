@@ -1008,7 +1008,7 @@ const App: React.FC = () => {
   }, []);
 
   const handleShotListGeneration = useCallback(
-    async (language: string, frameRate: number) => {
+    async (language: string, frameRate: number, minShotDuration: number = 0) => {
       if (!state.videoFile || !state.geminiFileUri || !state.videoMetadata) return;
 
       const runner = createJobRunner<ShotListResult>('shotlist', async (controller, updateProgress) => {
@@ -1028,7 +1028,27 @@ const App: React.FC = () => {
           useProMode: state.useProMode // Toggle for Zero Hallucination
         });
 
-        const shotsWithThumbnails = shotsData.map((shot: any, index: number) => {
+        // Apply minimum shot duration filter if set
+        let filteredShots = shotsData;
+        if (minShotDuration > 0) {
+          const originalCount = shotsData.length;
+          filteredShots = shotsData.filter((shot: any) => {
+            // Parse duration string like "00:00:02:15" to seconds
+            const durationParts = (shot.duration || '00:00:00:00').split(':').map(Number);
+            let durationSeconds = 0;
+            if (durationParts.length === 4) {
+              // HH:MM:SS:FF format
+              durationSeconds = durationParts[0] * 3600 + durationParts[1] * 60 + durationParts[2] + durationParts[3] / frameRate;
+            } else if (durationParts.length === 3) {
+              // HH:MM:SS format
+              durationSeconds = durationParts[0] * 3600 + durationParts[1] * 60 + durationParts[2];
+            }
+            return durationSeconds >= minShotDuration;
+          });
+          console.log(`[ShotList] Filtered: ${originalCount} → ${filteredShots.length} shots (min ${minShotDuration}s)`);
+        }
+
+        const shotsWithThumbnails = filteredShots.map((shot: any, index: number) => {
           return {
             ...shot,
             nr: index + 1,
