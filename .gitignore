@@ -24,3 +24,6 @@ dist-ssr
 *.sw?
 .vercel
 .env*.local
+google-cloud-cli-darwin-arm.tar.gz
+project_source_code.zip
+*.tar.gz
