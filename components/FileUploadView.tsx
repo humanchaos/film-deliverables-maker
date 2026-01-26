@@ -2,13 +2,14 @@ import React, { useRef, useState, DragEvent } from 'react';
 import { useTranslation } from 'react-i18next';
 import { ArrowRight, Settings, Cloud, Loader2 } from 'lucide-react';
 
-// Language options for inline selector - reduced to 5 main languages
+// Language options for inline selector - 5 main languages + custom
 const LANGUAGES = [
   { code: 'de', name: 'Deutsch', flag: '🇩🇪' },
   { code: 'en', name: 'English', flag: '🇬🇧' },
   { code: 'fr', name: 'Français', flag: '🇫🇷' },
   { code: 'ja', name: '日本語', flag: '🇯🇵' },
   { code: 'es', name: 'Español', flag: '🇪🇸' },
+  { code: 'custom', name: 'Custom', flag: '🌐' },
 ];
 
 interface FileUploadViewProps {
@@ -73,6 +74,22 @@ const FileUploadView: React.FC<FileUploadViewProps> = ({
   };
 
   const handleLanguageSelect = (langCode: string) => {
+    // Handle custom language option
+    if (langCode === 'custom') {
+      const customLang = prompt('Enter your preferred output language (e.g., "Italian", "Mandarin", "Arabic"):');
+      if (!customLang) return; // User cancelled
+
+      // Use English UI but store custom language for output
+      i18n.changeLanguage('en');
+      localStorage.setItem('menuLanguage', 'en');
+      localStorage.setItem('customOutputLanguage', customLang);
+      onSelectLanguage?.('en');
+      return;
+    }
+
+    // Clear custom language when selecting a standard language
+    localStorage.removeItem('customOutputLanguage');
+
     // Change i18n language
     i18n.changeLanguage(langCode);
     localStorage.setItem('menuLanguage', langCode);

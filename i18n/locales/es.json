@@ -1,0 +1,267 @@
+{
+    "common": {
+        "loading": "Cargando...",
+        "error": "Error",
+        "success": "Éxito",
+        "cancel": "Cancelar",
+        "confirm": "Confirmar",
+        "save": "Guardar",
+        "delete": "Eliminar",
+        "edit": "Editar",
+        "close": "Cerrar",
+        "back": "Atrás",
+        "next": "Siguiente",
+        "continue": "Continuar",
+        "yes": "Sí",
+        "no": "No",
+        "unsavedChanges": "Cambios sin guardar",
+        "saveChanges": "Guardar cambios",
+        "saved": "Guardado",
+        "exit": "Salir"
+    },
+    "nav": {
+        "dashboard": "Panel",
+        "settings": "Configuración",
+        "history": "Historial",
+        "backToDashboard": "← Volver al panel",
+        "help": "Ayuda"
+    },
+    "landing": {
+        "title": "Creador de Entregables Estándar de la Industria",
+        "subtitle": "Análisis de video profesional impulsado por IA",
+        "connectCloud": "Conectar almacenamiento en la nube",
+        "connectRequired": "Necesario para cargar y procesar tus videos.",
+        "connectGCS": "Conectar Google Cloud Storage",
+        "connectDrive": "Conectar Google Drive",
+        "benefits": {
+            "largeFiles": "Subir archivos de video grandes (hasta 2GB)",
+            "secure": "Procesamiento seguro en la nube",
+            "anywhere": "Acceder a entregables desde cualquier lugar"
+        },
+        "connecting": "Conectando..."
+    },
+    "language": {
+        "title": "Elige tu idioma",
+        "subtitle": "Esto establece el idioma de la interfaz.",
+        "outputNote": "El idioma de salida coincidirá automáticamente con tu película.",
+        "continue": "Continuar →"
+    },
+    "upload": {
+        "title": "Subir video",
+        "dropzone": "Arrastra el video aquí o haz clic para seleccionar",
+        "dropzoneActive": "Suelta el video aquí...",
+        "analyzing": "Analizando...",
+        "uploading": "Subiendo...",
+        "processing": "Procesando...",
+        "selectFile": "Seleccionar archivo",
+        "maxSize": "Tamaño máximo: 2GB",
+        "supportedFormats": "Formatos compatibles: MP4, MOV, AVI, WebM, MKV"
+    },
+    "fileUpload": {
+        "tagline1": "Precisión de fotograma.",
+        "tagline2": "Totalmente automático.",
+        "tagline3": "Estándar de la industria",
+        "tagline4": "Entregables.",
+        "goTakeBreak": "Tómate un descanso.",
+        "startUploading": "Comenzar a subir",
+        "dropHere": "SUELTA EL ARCHIVO DE VIDEO AQUÍ"
+    },
+    "modules": {
+        "synopsis": "Sinopsis",
+        "shotList": "Lista de planos",
+        "transcription": "Transcripción",
+        "fauna": "Especies de vida silvestre",
+        "graphics": "Gráficos y tercios inferiores",
+        "cast": "Elenco",
+        "fullAnalysis": "Análisis completo",
+        "techSpecs": "Especificaciones técnicas"
+    },
+    "modeSelect": {
+        "chooseType": "Elegir tipo de análisis",
+        "uploadingDisabled": "Subiendo video... (Análisis deshabilitado)",
+        "downloadAll": "Descargar todo",
+        "library": "Biblioteca",
+        "newUpload": "Nueva subida",
+        "feedback": "Comentarios",
+        "done": "Hecho",
+        "resultsAvailable": "✓ Resultados disponibles - Clic para ver",
+        "fullAnalysis": "Generar paquete de análisis completo (Unificado)",
+        "fullAnalysisDesc": "Ejecutar TODOS los módulos a la vez (Sinopsis, Bio, Gráficos, Fauna, Transcripción, Lista de planos) usando el pipeline del backend.",
+        "synopsis": "Generar sinopsis",
+        "bio": "Generar biografías de talentos",
+        "graphics": "Buscar gráficos y tercios inferiores",
+        "fauna": "Identificar especies animales",
+        "transcribe": "Transcribir audio/video",
+        "shotlist": "Generar lista de planos",
+        "templateConverter": "Convertidor de plantillas",
+        "templateConverterDesc": "Adaptar contenido de un documento para que coincida con el diseño y estilo de otra plantilla.",
+        "techspecs": "Informe de especificaciones técnicas",
+        "techspecsDesc": "Generar un documento de especificaciones técnicas profesional (estilo PBS/BBC) a partir de metadatos de video."
+    },
+    "actions": {
+        "analyze": "Iniciar análisis",
+        "analyzeSelected": "Analizar seleccionado",
+        "export": "Exportar",
+        "exportExcel": "Exportar como Excel",
+        "exportWord": "Exportar como Word",
+        "exportCSV": "Exportar como CSV",
+        "exportSRT": "Exportar como SRT",
+        "download": "Descargar",
+        "copy": "Copiar",
+        "copied": "¡Copiado!",
+        "copyText": "Copiar texto",
+        "retry": "Reintentar",
+        "startOver": "Empezar de nuevo"
+    },
+    "table": {
+        "preview": "Vista previa",
+        "start": "Inicio",
+        "end": "Fin",
+        "speaker": "Hablante",
+        "status": "Estado",
+        "transcript": "Transcripción",
+        "nr": "Nº",
+        "tcIn": "TC entrada",
+        "tcOut": "TC salida",
+        "duration": "Dur",
+        "description": "Descripción",
+        "action": "Acción",
+        "audio": "Audio"
+    },
+    "transcription": {
+        "verification": "Verificación de transcripción",
+        "segments": "segmentos",
+        "autoAssign": "Asignar nombres automáticamente"
+    },
+    "shotlist": {
+        "verification": "Estación de verificación",
+        "shots": "planos"
+    },
+    "synopsis": {
+        "generated": "¡Sinopsis generada!",
+        "logline": "Logline",
+        "summary": "Resumen",
+        "fullSynopsis": "Sinopsis completa",
+        "keyThemes": "Temas clave",
+        "targetAudience": "Audiencia objetivo"
+    },
+    "fauna": {
+        "title": "Lista de especies",
+        "uniqueSpecies": "Especies únicas",
+        "totalSightings": "Avistamientos totales",
+        "categories": "Categorías"
+    },
+    "graphics": {
+        "title": "Registro de gráficos y tercios inferiores",
+        "graphics": "Gráficos",
+        "lowerThirds": "Tercios inferiores",
+        "totalItems": "Total de elementos"
+    },
+    "bio": {
+        "generated": "¡Biografías generadas!",
+        "successful": "exitosos",
+        "failed": "fallidos",
+        "allCompleted": "Todos completados",
+        "verifiedSources": "Fuentes verificadas"
+    },
+    "templateConverter": {
+        "conversionComplete": "Conversión completada",
+        "newConversion": "Nueva conversión",
+        "downloadMarkdown": "Descargar Markdown"
+    },
+    "input": {
+        "transcription": {
+            "title": "Transcripción de audio/video",
+            "start": "Iniciar transcripción"
+        },
+        "shotlist": {
+            "title": "Generación de lista de planos",
+            "language": "Idioma de descripción",
+            "frameRate": "Velocidad de fotogramas (FPS)",
+            "minDuration": "Duración mínima del plano",
+            "minDurationHint": "Filtrar planos más cortos que esta duración. Desactivado para incluir todos los planos.",
+            "generate": "Generar lista de planos"
+        },
+        "bio": {
+            "title": "Generación de biografía",
+            "detectionMode": "Modo de detección",
+            "autoDetect": "Detectar talentos automáticamente",
+            "enterManually": "Ingresar manualmente",
+            "language": "Idioma de biografía",
+            "generate": "Generar biografías"
+        },
+        "fauna": {
+            "title": "Identificación de fauna",
+            "primaryLanguage": "Idioma principal",
+            "secondaryLanguage": "Idioma secundario",
+            "identify": "Identificar especies"
+        },
+        "graphics": {
+            "title": "Detección de gráficos y tercios inferiores",
+            "start": "Iniciar análisis"
+        },
+        "synopsis": {
+            "title": "Configuración de sinopsis",
+            "generate": "Generar sinopsis"
+        },
+        "templateConverter": {
+            "title": "Convertidor de plantillas",
+            "convert": "Convertir formato"
+        }
+    },
+    "speakers": {
+        "title": "Gestionar hablantes",
+        "hint": "Renombrar un hablante aplica el cambio a todos los segmentos.",
+        "rename": "Renombrar",
+        "applyToAll": "Aplicar a todos",
+        "segments": "Segmentos",
+        "newName": "Nuevo nombre..."
+    },
+    "results": {
+        "title": "Resultados del análisis",
+        "noResults": "No hay resultados disponibles",
+        "processing": "Análisis en progreso...",
+        "complete": "Análisis completo",
+        "failed": "Análisis fallido"
+    },
+    "settings": {
+        "title": "Configuración del proyecto",
+        "projectMetadata": "Metadatos del proyecto",
+        "productionCompany": "Compañía de producción",
+        "seriesTitle": "Título de la serie",
+        "episodeTitle": "Título del episodio",
+        "episodeNumber": "Número de episodio",
+        "director": "Director",
+        "producer": "Productor",
+        "editor": "Editor",
+        "exportTemplate": "Plantilla de exportación",
+        "timecodeStart": "Inicio del código de tiempo",
+        "language": "Idioma",
+        "menuLanguage": "Idioma del menú",
+        "outputLanguage": "Idioma de salida",
+        "restartWalkthrough": "Reiniciar tutorial"
+    },
+    "errors": {
+        "title": "Ocurrió un error",
+        "fileTooLarge": "El archivo es demasiado grande. Por favor selecciona un archivo menor de 20GB.",
+        "unsupportedFormat": "Formato no compatible. Por favor usa MP4, MOV, AVI, WebM o MKV.",
+        "uploadFailed": "Error de subida. Verifica tu conexión a internet.",
+        "analysisFailed": "Error de análisis. Por favor intenta de nuevo.",
+        "connectionFailed": "Error de conexión. Por favor intenta de nuevo.",
+        "unknown": "Ocurrió un error desconocido."
+    },
+    "processing": {
+        "hint": "Esto puede tardar unos momentos. Puedes dejarlo ejecutándose en segundo plano.",
+        "runInBackground": "Ejecutar en segundo plano",
+        "cancel": "Cancelar (ESC)"
+    },
+    "export": {
+        "title": "Exportar",
+        "format": "Formato",
+        "template": "Plantilla",
+        "includeTimecode": "Incluir código de tiempo",
+        "includeThumbnails": "Incluir miniaturas",
+        "generating": "Generando documento...",
+        "ready": "Exportación lista"
+    }
+}

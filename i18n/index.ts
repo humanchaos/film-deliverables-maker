@@ -8,10 +8,12 @@ import { initReactI18next } from 'react-i18next';
 import de from './locales/de.json';
 import en from './locales/en.json';
 import fr from './locales/fr.json';
+import ja from './locales/ja.json';
+import es from './locales/es.json';
 
 // Get stored menu language or default to German
-const storedLanguage = typeof window !== 'undefined' 
-  ? localStorage.getItem('menuLanguage') 
+const storedLanguage = typeof window !== 'undefined'
+  ? localStorage.getItem('menuLanguage')
   : null;
 
 i18n
@@ -21,6 +23,8 @@ i18n
       de: { translation: de },
       en: { translation: en },
       fr: { translation: fr },
+      ja: { translation: ja },
+      es: { translation: es },
     },
     lng: storedLanguage || 'de', // Default German for TMS
     fallbackLng: 'en',

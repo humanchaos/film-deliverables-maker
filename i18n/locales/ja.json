@@ -1,0 +1,267 @@
+{
+    "common": {
+        "loading": "読み込み中...",
+        "error": "エラー",
+        "success": "成功",
+        "cancel": "キャンセル",
+        "confirm": "確認",
+        "save": "保存",
+        "delete": "削除",
+        "edit": "編集",
+        "close": "閉じる",
+        "back": "戻る",
+        "next": "次へ",
+        "continue": "続ける",
+        "yes": "はい",
+        "no": "いいえ",
+        "unsavedChanges": "未保存の変更",
+        "saveChanges": "変更を保存",
+        "saved": "保存しました",
+        "exit": "終了"
+    },
+    "nav": {
+        "dashboard": "ダッシュボード",
+        "settings": "設定",
+        "history": "履歴",
+        "backToDashboard": "← ダッシュボードに戻る",
+        "help": "ヘルプ"
+    },
+    "landing": {
+        "title": "業界標準デリバラブルメーカー",
+        "subtitle": "AI搭載のプロフェッショナルビデオ分析",
+        "connectCloud": "クラウドストレージに接続",
+        "connectRequired": "動画のアップロードと処理に必要です。",
+        "connectGCS": "Google Cloud Storageに接続",
+        "connectDrive": "Google Driveに接続",
+        "benefits": {
+            "largeFiles": "大容量ビデオファイルのアップロード（最大2GB）",
+            "secure": "安全なクラウド処理",
+            "anywhere": "どこからでもデリバラブルにアクセス"
+        },
+        "connecting": "接続中..."
+    },
+    "language": {
+        "title": "言語を選択",
+        "subtitle": "インターフェース言語を設定します。",
+        "outputNote": "出力言語は自動的にフィルムに合わせます。",
+        "continue": "続ける →"
+    },
+    "upload": {
+        "title": "ビデオをアップロード",
+        "dropzone": "ここにビデオをドラッグまたはクリックして選択",
+        "dropzoneActive": "ここにビデオをドロップ...",
+        "analyzing": "分析中...",
+        "uploading": "アップロード中...",
+        "processing": "処理中...",
+        "selectFile": "ファイルを選択",
+        "maxSize": "最大サイズ: 2GB",
+        "supportedFormats": "対応フォーマット: MP4, MOV, AVI, WebM, MKV"
+    },
+    "fileUpload": {
+        "tagline1": "フレーム精度。",
+        "tagline2": "完全自動。",
+        "tagline3": "業界標準",
+        "tagline4": "デリバラブル。",
+        "goTakeBreak": "休憩してください。",
+        "startUploading": "アップロード開始",
+        "dropHere": "ここにビデオファイルをドロップ"
+    },
+    "modules": {
+        "synopsis": "シノプシス",
+        "shotList": "ショットリスト",
+        "transcription": "文字起こし",
+        "fauna": "野生動物種",
+        "graphics": "グラフィックス＆ローワーサード",
+        "cast": "キャスト",
+        "fullAnalysis": "フル分析",
+        "techSpecs": "技術仕様"
+    },
+    "modeSelect": {
+        "chooseType": "分析タイプを選択",
+        "uploadingDisabled": "ビデオアップロード中...（分析無効）",
+        "downloadAll": "すべてダウンロード",
+        "library": "ライブラリ",
+        "newUpload": "新規アップロード",
+        "feedback": "フィードバック",
+        "done": "完了",
+        "resultsAvailable": "✓ 結果あり - クリックして表示",
+        "fullAnalysis": "フル分析パッケージを生成（統合）",
+        "fullAnalysisDesc": "バックエンドパイプラインを使用してすべてのモジュールを一度に実行（シノプシス、バイオ、グラフィックス、ファウナ、文字起こし、ショットリスト）。",
+        "synopsis": "シノプシスを生成",
+        "bio": "タレントバイオを生成",
+        "graphics": "グラフィックス＆ローワーサードを検索",
+        "fauna": "動物種を識別",
+        "transcribe": "音声/動画を文字起こし",
+        "shotlist": "ショットリストを生成",
+        "templateConverter": "テンプレートコンバーター",
+        "templateConverterDesc": "ドキュメントのコンテンツを別のテンプレートのレイアウトとスタイルに合わせて変換。",
+        "techspecs": "技術仕様レポート",
+        "techspecsDesc": "ビデオメタデータからプロフェッショナルな技術仕様書（PBS/BBCスタイル）を生成。"
+    },
+    "actions": {
+        "analyze": "分析開始",
+        "analyzeSelected": "選択を分析",
+        "export": "エクスポート",
+        "exportExcel": "Excelでエクスポート",
+        "exportWord": "Wordでエクスポート",
+        "exportCSV": "CSVでエクスポート",
+        "exportSRT": "SRTでエクスポート",
+        "download": "ダウンロード",
+        "copy": "コピー",
+        "copied": "コピーしました！",
+        "copyText": "テキストをコピー",
+        "retry": "再試行",
+        "startOver": "やり直す"
+    },
+    "table": {
+        "preview": "プレビュー",
+        "start": "開始",
+        "end": "終了",
+        "speaker": "話者",
+        "status": "ステータス",
+        "transcript": "書き起こし",
+        "nr": "番号",
+        "tcIn": "TCイン",
+        "tcOut": "TCアウト",
+        "duration": "長さ",
+        "description": "説明",
+        "action": "アクション",
+        "audio": "オーディオ"
+    },
+    "transcription": {
+        "verification": "文字起こし確認",
+        "segments": "セグメント",
+        "autoAssign": "名前を自動割り当て"
+    },
+    "shotlist": {
+        "verification": "確認ステーション",
+        "shots": "ショット"
+    },
+    "synopsis": {
+        "generated": "シノプシス生成完了！",
+        "logline": "ログライン",
+        "summary": "要約",
+        "fullSynopsis": "フルシノプシス",
+        "keyThemes": "主要テーマ",
+        "targetAudience": "ターゲット視聴者"
+    },
+    "fauna": {
+        "title": "種リスト",
+        "uniqueSpecies": "ユニークな種",
+        "totalSightings": "目撃総数",
+        "categories": "カテゴリ"
+    },
+    "graphics": {
+        "title": "グラフィックス＆ローワーサードログ",
+        "graphics": "グラフィックス",
+        "lowerThirds": "ローワーサード",
+        "totalItems": "総アイテム"
+    },
+    "bio": {
+        "generated": "バイオグラフィー生成完了！",
+        "successful": "成功",
+        "failed": "失敗",
+        "allCompleted": "すべて完了",
+        "verifiedSources": "検証済みソース"
+    },
+    "templateConverter": {
+        "conversionComplete": "変換完了",
+        "newConversion": "新規変換",
+        "downloadMarkdown": "Markdownをダウンロード"
+    },
+    "input": {
+        "transcription": {
+            "title": "音声/動画文字起こし",
+            "start": "文字起こし開始"
+        },
+        "shotlist": {
+            "title": "ショットリスト生成",
+            "language": "説明言語",
+            "frameRate": "フレームレート（FPS）",
+            "minDuration": "最小ショット長",
+            "minDurationHint": "この長さより短いショットをフィルタリング。オフで全ショットを含む。",
+            "generate": "ショットリストを生成"
+        },
+        "bio": {
+            "title": "バイオ生成",
+            "detectionMode": "検出モード",
+            "autoDetect": "タレント自動検出",
+            "enterManually": "手動入力",
+            "language": "バイオグラフィー言語",
+            "generate": "バイオグラフィー生成"
+        },
+        "fauna": {
+            "title": "ファウナ識別",
+            "primaryLanguage": "主言語",
+            "secondaryLanguage": "副言語",
+            "identify": "種を識別"
+        },
+        "graphics": {
+            "title": "グラフィックス＆ローワーサード検出",
+            "start": "分析開始"
+        },
+        "synopsis": {
+            "title": "シノプシス設定",
+            "generate": "シノプシス生成"
+        },
+        "templateConverter": {
+            "title": "テンプレートコンバーター",
+            "convert": "フォーマット変換"
+        }
+    },
+    "speakers": {
+        "title": "話者管理",
+        "hint": "話者の名前を変更すると、すべてのセグメントに適用されます。",
+        "rename": "名前変更",
+        "applyToAll": "すべてに適用",
+        "segments": "セグメント",
+        "newName": "新しい名前..."
+    },
+    "results": {
+        "title": "分析結果",
+        "noResults": "結果がありません",
+        "processing": "分析中...",
+        "complete": "分析完了",
+        "failed": "分析失敗"
+    },
+    "settings": {
+        "title": "プロジェクト設定",
+        "projectMetadata": "プロジェクトメタデータ",
+        "productionCompany": "制作会社",
+        "seriesTitle": "シリーズタイトル",
+        "episodeTitle": "エピソードタイトル",
+        "episodeNumber": "エピソード番号",
+        "director": "監督",
+        "producer": "プロデューサー",
+        "editor": "編集者",
+        "exportTemplate": "エクスポートテンプレート",
+        "timecodeStart": "タイムコード開始",
+        "language": "言語",
+        "menuLanguage": "メニュー言語",
+        "outputLanguage": "出力言語",
+        "restartWalkthrough": "ウォークスルーを再開"
+    },
+    "errors": {
+        "title": "エラーが発生しました",
+        "fileTooLarge": "ファイルが大きすぎます。20GB未満のファイルを選択してください。",
+        "unsupportedFormat": "サポートされていない形式です。MP4、MOV、AVI、WebM、またはMKVを使用してください。",
+        "uploadFailed": "アップロード失敗。インターネット接続を確認してください。",
+        "analysisFailed": "分析失敗。もう一度お試しください。",
+        "connectionFailed": "接続失敗。もう一度お試しください。",
+        "unknown": "不明なエラーが発生しました。"
+    },
+    "processing": {
+        "hint": "少々お待ちください。バックグラウンドで実行できます。",
+        "runInBackground": "バックグラウンドで実行",
+        "cancel": "キャンセル（ESC）"
+    },
+    "export": {
+        "title": "エクスポート",
+        "format": "フォーマット",
+        "template": "テンプレート",
+        "includeTimecode": "タイムコードを含む",
+        "includeThumbnails": "サムネイルを含む",
+        "generating": "ドキュメント生成中...",
+        "ready": "エクスポート準備完了"
+    }
+}
