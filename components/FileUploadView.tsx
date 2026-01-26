@@ -124,7 +124,7 @@ const FileUploadView: React.FC<FileUploadViewProps> = ({
           </button>
 
           {showLanguageDropdown && (
-            <div className="absolute top-full left-0 right-0 mt-2 bg-zinc-900 border border-zinc-700 rounded-lg shadow-2xl overflow-hidden z-50">
+            <div className="absolute top-full left-0 right-0 mt-2 bg-zinc-900 border border-zinc-700 rounded-lg shadow-2xl overflow-hidden z-50 max-h-80 overflow-y-auto">
               {LANGUAGES.map((lang) => (
                 <button
                   key={lang.code}
