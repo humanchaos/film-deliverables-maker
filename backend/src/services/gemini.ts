@@ -541,15 +541,24 @@ export async function detectCast(
 
     const prompt = `Identify all people visible in this video.
 
+CRITICAL ANTI-HALLUCINATION RULES:
+- ONLY use names that are EXPLICITLY shown on screen (lower thirds, title cards) or SPOKEN in the video
+- If a person's name is NOT visible or mentioned, use a descriptive label like "Man in blue shirt" or "Interviewer"
+- NEVER invent or guess names based on appearance
+- For biographies: ONLY include facts that can be verified from the video content or that are widely known public information
+- If you cannot verify biographical details, describe ONLY what is observable in the video
+- When uncertain, always prefer "Unknown" over guessing
+
 For each person provide:
-- name: Their name if identified, or description ("Man in red jacket")
-- fullName: Full name if known
-- title: Their role or profession if apparent
-- biography: Brief bio (2-3 sentences) if they're a known figure, otherwise describe their appearance/role in the video
+- name: Their name if EXPLICITLY identified in video, otherwise use a description
+- fullName: Full name ONLY if shown/spoken in video
+- title: Their role or profession ONLY if stated in video
+- biography: Brief bio ONLY if they are a publicly known figure with verifiable information. Otherwise, describe their role and appearance in the video only.
 - firstAppearance: Timecode when first seen (HH:MM:SS)
 
-If someone is identified by name in lower thirds or narration, use that name.
-For unidentified people, use descriptive names.`;
+If someone is identified by name in lower thirds or narration, use that exact name.
+For unidentified people, use descriptive names like "Woman with glasses" or "Host".`;
+
 
     const response = await callGemini(prompt, fileUri, mimeType, {
         type: Type.OBJECT,
