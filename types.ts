@@ -21,6 +21,8 @@ export interface TemplateConverterResult {
 // APP STATE TYPES
 
 export enum AppStatus {
+  LANDING = 'landing', // New: Cloud connection required
+  LANGUAGE_SELECT = 'language_select', // New: Language selection
   UPLOAD = 'upload',
   UPLOADING = 'uploading',
   PREPARING_VIDEO = 'preparing_video',
@@ -33,6 +35,7 @@ export enum AppStatus {
   MODEL_ROUTER_SETTINGS = 'model_router_settings',
   SEMANTIC_SEARCH = 'semantic_search',
 }
+
 
 // ═══════════════════════════════════════════════════════════════════════════════
 // DATABASE TYPES

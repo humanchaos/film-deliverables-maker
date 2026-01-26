@@ -71,6 +71,10 @@ const SceneDetectorDebugView = lazy(() => import('./components/SceneDetectorDebu
 const ModelRouterSettings = lazy(() => import('./components/ModelRouterSettings').then(module => ({ default: module.ModelRouterSettings })));
 const SemanticSearchView = lazy(() => import('./components/SemanticSearchView').then(module => ({ default: module.SemanticSearchView })));
 
+// New onboarding pages
+const LandingPage = lazy(() => import('./pages/Landing'));
+const LanguageSelection = lazy(() => import('./pages/LanguageSelection'));
+
 // ═══════════════════════════════════════════════════════════════════════════════
 // TYPES & INTERFACES
 // ═══════════════════════════════════════════════════════════════════════════════
@@ -157,8 +161,23 @@ const initialJobs: AllJobs = {
   techspecs: { ...initialJobState },
 };
 
+// Determine initial app status based on onboarding state
+function getInitialAppStatus(): AppStatus {
+  const hasCloudConnection = localStorage.getItem('cloudConnected') === 'true' ||
+    !!(authService.getAccessToken() || localStorage.getItem('gcsAccessToken'));
+  const hasLanguageSelected = !!localStorage.getItem('menuLanguage');
+
+  if (!hasCloudConnection) {
+    return AppStatus.LANDING;
+  }
+  if (!hasLanguageSelected) {
+    return AppStatus.LANGUAGE_SELECT;
+  }
+  return AppStatus.UPLOAD;
+}
+
 const initialState: AppState = {
-  appStatus: AppStatus.UPLOAD,
+  appStatus: getInitialAppStatus(),
   selectedMode: null,
   videoFile: null,
   videoPreviewUrl: null,
@@ -184,6 +203,7 @@ const initialState: AppState = {
   useProMode: localStorage.getItem('useProMode') === 'true',
   semanticIndexing: { status: 'idle', progress: 0 },
 };
+
 
 function appReducer(state: AppState, action: AppAction): AppState {
   switch (action.type) {
@@ -1237,8 +1257,45 @@ const App: React.FC = () => {
 
   const renderContent = () => {
     switch (state.appStatus) {
+      // New onboarding flow
+      case AppStatus.LANDING:
+        return (
+          <LandingPage
+            onConnect={async () => {
+              // Try actual Google OAuth flow, fallback to demo mode
+              try {
+                const user = await authService.signIn();
+                localStorage.setItem('cloudConnected', 'true');
+                dispatch({
+                  type: 'SET_GOOGLE_USER',
+                  payload: { email: user.email, token: user.accessToken }
+                });
+                dispatch({ type: 'SET_STATUS', payload: AppStatus.LANGUAGE_SELECT });
+              } catch (error) {
+                console.warn('[Onboarding] OAuth failed, using demo mode:', error);
+                // Demo mode - proceed without actual credentials
+                localStorage.setItem('cloudConnected', 'demo');
+                dispatch({ type: 'SET_STATUS', payload: AppStatus.LANGUAGE_SELECT });
+              }
+            }}
+          />
+        );
+
+      case AppStatus.LANGUAGE_SELECT:
+        return (
+          <LanguageSelection
+            onSelect={(langCode) => {
+              // Store language selection
+              localStorage.setItem('menuLanguage', langCode);
+              // Move to upload screen
+              dispatch({ type: 'SET_STATUS', payload: AppStatus.UPLOAD });
+            }}
+          />
+        );
+
       case AppStatus.UPLOAD:
         return <FileUploadView onFileSelect={handleFileSelect} onUriSelect={handleUriSelect} onOpenSettings={handleProjectSettings} />;
+
 
       case AppStatus.UPLOADING:
         return (

@@ -197,19 +197,28 @@ export function secondsToTimecode(seconds: number, frameRate: number = 25, inclu
 
 /**
  * Generate CSV content from headers and rows
+ * Uses UTF-8 BOM and semicolon delimiter for European Excel compatibility
  */
 export function generateCSV(headers: string[], rows: any[][]): string {
+  const BOM = '\uFEFF'; // UTF-8 BOM for Excel
+  const delimiter = ';'; // Semicolon for European Excel
+
   const escape = (str: string) => {
     if (str === null || str === undefined) return '';
     const s = String(str);
-    return s.includes(',') || s.includes('"') || s.includes('\n') ? `"${s.replace(/"/g, '""')}"` : s;
+    // Escape if contains delimiter, quotes, or newlines
+    if (s.includes(delimiter) || s.includes('"') || s.includes('\n')) {
+      return `"${s.replace(/"/g, '""')}"`;
+    }
+    return s;
   };
 
-  const headerLine = headers.map(escape).join(',');
-  const dataLines = rows.map(row => row.map(escape).join(',')).join('\n');
+  const headerLine = headers.map(escape).join(delimiter);
+  const dataLines = rows.map(row => row.map(escape).join(delimiter)).join('\n');
 
-  return `${headerLine}\n${dataLines}`;
+  return `${BOM}${headerLine}\n${dataLines}`;
 }
+
 
 /**
  * Trigger file download in browser

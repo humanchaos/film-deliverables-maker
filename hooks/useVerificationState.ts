@@ -10,6 +10,7 @@ interface VerificationState<T> {
     isDirty: boolean;
     cursor: CursorPosition | null;
     updateCell: (rowIndex: number, field: keyof T, value: any) => void;
+    updateAllMatching: (field: keyof T, oldValue: any, newValue: any) => void;
     setCursor: (cursor: CursorPosition | null) => void;
     navigate: (direction: 'next' | 'prev' | 'up' | 'down') => void;
     save: () => void;
@@ -32,6 +33,20 @@ export function useVerificationState<T>(initialData: T[], onSave: (data: T[]) =>
         setData(prev => {
             const newData = [...prev];
             newData[rowIndex] = { ...newData[rowIndex], [field]: value };
+            return newData;
+        });
+        setIsDirty(true);
+    }, []);
+
+    // Update all rows where field matches oldValue to newValue
+    const updateAllMatching = useCallback((field: keyof T, oldValue: any, newValue: any) => {
+        setData(prev => {
+            const newData = prev.map(item => {
+                if (item[field] === oldValue) {
+                    return { ...item, [field]: newValue };
+                }
+                return item;
+            });
             return newData;
         });
         setIsDirty(true);
@@ -106,6 +121,7 @@ export function useVerificationState<T>(initialData: T[], onSave: (data: T[]) =>
         cursor,
         setCursor,
         updateCell,
+        updateAllMatching,
         navigate,
         save,
         reset,

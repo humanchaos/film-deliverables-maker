@@ -1,14 +1,19 @@
 /**
- * Gemini Video Analyzer - Backend Server v2
+ * Gemini Video Analyzer - Backend Server v2.4.0
  * 
  * Clean, minimal Express server with:
  * - REST API for job management
  * - Health check endpoint
  * - CORS for frontend access
+ * - Rate limiting & circuit breaker (NEW)
+ * - Checkpoint persistence (NEW)
  */
 
 import express from 'express';
 import cors from 'cors';
+import * as fs from 'fs';
+import * as os from 'os';
+import * as path from 'path';
 import { config, validateConfig } from './config/env.js';
 import { initFirebase } from './services/firebase.js';
 import {
@@ -27,8 +32,38 @@ import {
     downloadWithTemplate
 } from './controllers/templates.js';
 
+// ═══════════════════════════════════════════════════════════════════════════
+// STARTUP CLEANUP
+// ═══════════════════════════════════════════════════════════════════════════
+
+/**
+ * Clean up stale temp files from previous runs
+ * Prevents disk space bloat on long-running instances
+ */
+function cleanupTempFiles(): void {
+    try {
+        const tempDir = os.tmpdir();
+        const files = fs.readdirSync(tempDir);
+        const staleFiles = files.filter(f => f.startsWith('gemini_'));
+
+        if (staleFiles.length > 0) {
+            console.log(`[Cleanup] Removing ${staleFiles.length} stale temp files...`);
+            staleFiles.forEach(f => {
+                try {
+                    fs.unlinkSync(path.join(tempDir, f));
+                } catch { /* ignore individual file errors */ }
+            });
+        }
+    } catch (error) {
+        console.warn('[Cleanup] Could not clean temp files:', error);
+    }
+}
+
 // Validate configuration on startup
 validateConfig();
+
+// Clean up stale temp files
+cleanupTempFiles();
 
 // Initialize Firebase
 initFirebase();
@@ -38,7 +73,7 @@ const app = express();
 
 // Middleware
 app.use(cors());
-app.use(express.json());
+app.use(express.json({ limit: '50mb' })); // Increased for large job payloads
 
 // ═══════════════════════════════════════════════════════════════════════════
 // PUBLIC API ROUTES
@@ -76,10 +111,17 @@ app.get('/health', (req, res) => {
     res.status(200).json({
         status: 'healthy',
         timestamp: new Date().toISOString(),
-        version: '2.3.1',  // Increment on each deploy
+        version: '2.4.0',  // Version with all audit fixes
         apiVersion: 'v2',
         service: 'gemini-super-app-backend',
-        features: ['geminiFileUri-passthrough'] // Track feature flags
+        features: [
+            'geminiFileUri-passthrough',
+            'checkpoint-persistence',
+            'rate-limiting',
+            'circuit-breaker',
+            'module-timeouts',
+            'atomic-job-locking'
+        ]
     });
 });
 
@@ -99,9 +141,10 @@ app.use((err: Error, req: express.Request, res: express.Response, next: express.
 app.listen(config.port, () => {
     console.log(`
 ╔════════════════════════════════════════════════════════════╗
-║  Gemini Video Analyzer v2.0                                ║
+║  Gemini Video Analyzer v2.4.0                              ║
 ║  Server running on port ${config.port}                             ║
 ║  Environment: ${config.nodeEnv.padEnd(40)}║
+║  Features: Rate Limiting, Checkpoints, Circuit Breaker     ║
 ╚════════════════════════════════════════════════════════════╝
   `);
 });

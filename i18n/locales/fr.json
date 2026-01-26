@@ -1,0 +1,129 @@
+{
+    "common": {
+        "loading": "Chargement...",
+        "error": "Erreur",
+        "success": "Succès",
+        "cancel": "Annuler",
+        "confirm": "Confirmer",
+        "save": "Enregistrer",
+        "delete": "Supprimer",
+        "edit": "Modifier",
+        "close": "Fermer",
+        "back": "Retour",
+        "next": "Suivant",
+        "continue": "Continuer",
+        "yes": "Oui",
+        "no": "Non"
+    },
+    "nav": {
+        "dashboard": "Tableau de bord",
+        "settings": "Paramètres",
+        "history": "Historique",
+        "backToDashboard": "← Retour au tableau de bord",
+        "help": "Aide"
+    },
+    "landing": {
+        "title": "Industry Standard Deliverables Maker",
+        "subtitle": "Analyse vidéo professionnelle propulsée par l'IA",
+        "connectCloud": "Connectez votre stockage cloud",
+        "connectRequired": "Requis pour télécharger et traiter vos vidéos.",
+        "connectGCS": "Connecter Google Cloud Storage",
+        "connectDrive": "Connecter Google Drive",
+        "benefits": {
+            "largeFiles": "Téléchargez des fichiers vidéo volumineux (jusqu'à 2 Go)",
+            "secure": "Traitement cloud sécurisé",
+            "anywhere": "Accédez aux livrables n'importe où"
+        },
+        "connecting": "Connexion..."
+    },
+    "language": {
+        "title": "Choisissez votre langue",
+        "subtitle": "Ceci définit la langue de l'interface.",
+        "outputNote": "La langue de sortie correspondra automatiquement à votre film.",
+        "continue": "Continuer →"
+    },
+    "upload": {
+        "title": "Télécharger une vidéo",
+        "dropzone": "Glissez la vidéo ici ou cliquez pour sélectionner",
+        "dropzoneActive": "Déposez la vidéo ici...",
+        "analyzing": "Analyse en cours...",
+        "uploading": "Téléchargement...",
+        "processing": "Traitement...",
+        "selectFile": "Sélectionner un fichier",
+        "maxSize": "Taille maximale : 2 Go",
+        "supportedFormats": "Formats supportés : MP4, MOV, AVI, WebM, MKV"
+    },
+    "modules": {
+        "synopsis": "Synopsis",
+        "shotList": "Liste des plans",
+        "transcription": "Transcription",
+        "fauna": "Espèces sauvages",
+        "graphics": "Graphiques et bandeaux",
+        "cast": "Distribution",
+        "fullAnalysis": "Analyse complète",
+        "techSpecs": "Spécifications techniques"
+    },
+    "actions": {
+        "analyze": "Démarrer l'analyse",
+        "analyzeSelected": "Analyser la sélection",
+        "export": "Exporter",
+        "exportExcel": "Exporter en Excel",
+        "exportWord": "Exporter en Word",
+        "exportCSV": "Exporter en CSV",
+        "exportSRT": "Exporter en SRT",
+        "download": "Télécharger",
+        "copy": "Copier",
+        "copied": "Copié !",
+        "retry": "Réessayer",
+        "startOver": "Recommencer"
+    },
+    "speakers": {
+        "title": "Gérer les intervenants",
+        "hint": "Renommez un intervenant pour appliquer le changement à tous les segments.",
+        "rename": "Renommer",
+        "applyToAll": "Appliquer à tous",
+        "segments": "Segments",
+        "newName": "Nouveau nom..."
+    },
+    "results": {
+        "title": "Résultats de l'analyse",
+        "noResults": "Aucun résultat disponible",
+        "processing": "Analyse en cours...",
+        "complete": "Analyse terminée",
+        "failed": "Échec de l'analyse"
+    },
+    "settings": {
+        "title": "Paramètres du projet",
+        "projectMetadata": "Métadonnées du projet",
+        "productionCompany": "Société de production",
+        "seriesTitle": "Titre de la série",
+        "episodeTitle": "Titre de l'épisode",
+        "episodeNumber": "Numéro de l'épisode",
+        "director": "Réalisateur",
+        "producer": "Producteur",
+        "editor": "Monteur",
+        "exportTemplate": "Modèle d'exportation",
+        "timecodeStart": "Timecode de début",
+        "language": "Langue",
+        "menuLanguage": "Langue du menu",
+        "outputLanguage": "Langue de sortie",
+        "restartWalkthrough": "Redémarrer la visite guidée"
+    },
+    "errors": {
+        "fileTooLarge": "Le fichier est trop volumineux. Veuillez sélectionner un fichier inférieur à 20 Go.",
+        "unsupportedFormat": "Format non supporté. Veuillez utiliser MP4, MOV, AVI, WebM ou MKV.",
+        "uploadFailed": "Échec du téléchargement. Veuillez vérifier votre connexion internet.",
+        "analysisFailed": "Échec de l'analyse. Veuillez réessayer.",
+        "connectionFailed": "Échec de la connexion. Veuillez réessayer.",
+        "unknown": "Une erreur inconnue s'est produite."
+    },
+    "export": {
+        "title": "Exporter",
+        "format": "Format",
+        "template": "Modèle",
+        "includeTimecode": "Inclure le timecode",
+        "includeThumbnails": "Inclure les vignettes",
+        "generating": "Génération du document...",
+        "ready": "Export prêt"
+    }
+}

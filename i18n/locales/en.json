@@ -1,0 +1,129 @@
+{
+    "common": {
+        "loading": "Loading...",
+        "error": "Error",
+        "success": "Success",
+        "cancel": "Cancel",
+        "confirm": "Confirm",
+        "save": "Save",
+        "delete": "Delete",
+        "edit": "Edit",
+        "close": "Close",
+        "back": "Back",
+        "next": "Next",
+        "continue": "Continue",
+        "yes": "Yes",
+        "no": "No"
+    },
+    "nav": {
+        "dashboard": "Dashboard",
+        "settings": "Settings",
+        "history": "History",
+        "backToDashboard": "← Back to Dashboard",
+        "help": "Help"
+    },
+    "landing": {
+        "title": "Industry Standard Deliverables Maker",
+        "subtitle": "Professional video analysis powered by AI",
+        "connectCloud": "Connect Your Cloud Storage",
+        "connectRequired": "Required to upload and process your videos.",
+        "connectGCS": "Connect Google Cloud Storage",
+        "connectDrive": "Connect Google Drive",
+        "benefits": {
+            "largeFiles": "Upload large video files (up to 2GB)",
+            "secure": "Secure cloud processing",
+            "anywhere": "Access deliverables anywhere"
+        },
+        "connecting": "Connecting..."
+    },
+    "language": {
+        "title": "Choose Your Language",
+        "subtitle": "This sets the interface language.",
+        "outputNote": "Output language will match your film automatically.",
+        "continue": "Continue →"
+    },
+    "upload": {
+        "title": "Upload Video",
+        "dropzone": "Drag video here or click to select",
+        "dropzoneActive": "Drop video here...",
+        "analyzing": "Analyzing...",
+        "uploading": "Uploading...",
+        "processing": "Processing...",
+        "selectFile": "Select File",
+        "maxSize": "Maximum size: 2GB",
+        "supportedFormats": "Supported formats: MP4, MOV, AVI, WebM, MKV"
+    },
+    "modules": {
+        "synopsis": "Synopsis",
+        "shotList": "Shot List",
+        "transcription": "Transcription",
+        "fauna": "Wildlife Species",
+        "graphics": "Graphics & Lower Thirds",
+        "cast": "Cast",
+        "fullAnalysis": "Full Analysis",
+        "techSpecs": "Technical Specifications"
+    },
+    "actions": {
+        "analyze": "Start Analysis",
+        "analyzeSelected": "Analyze Selected",
+        "export": "Export",
+        "exportExcel": "Export as Excel",
+        "exportWord": "Export as Word",
+        "exportCSV": "Export as CSV",
+        "exportSRT": "Export as SRT",
+        "download": "Download",
+        "copy": "Copy",
+        "copied": "Copied!",
+        "retry": "Retry",
+        "startOver": "Start Over"
+    },
+    "speakers": {
+        "title": "Manage Speakers",
+        "hint": "Rename a speaker to apply the change to all segments.",
+        "rename": "Rename",
+        "applyToAll": "Apply to All",
+        "segments": "Segments",
+        "newName": "New name..."
+    },
+    "results": {
+        "title": "Analysis Results",
+        "noResults": "No results available",
+        "processing": "Analysis in progress...",
+        "complete": "Analysis complete",
+        "failed": "Analysis failed"
+    },
+    "settings": {
+        "title": "Project Settings",
+        "projectMetadata": "Project Metadata",
+        "productionCompany": "Production Company",
+        "seriesTitle": "Series Title",
+        "episodeTitle": "Episode Title",
+        "episodeNumber": "Episode Number",
+        "director": "Director",
+        "producer": "Producer",
+        "editor": "Editor",
+        "exportTemplate": "Export Template",
+        "timecodeStart": "Timecode Start",
+        "language": "Language",
+        "menuLanguage": "Menu Language",
+        "outputLanguage": "Output Language",
+        "restartWalkthrough": "Restart Walkthrough"
+    },
+    "errors": {
+        "fileTooLarge": "File is too large. Please select a file smaller than 20GB.",
+        "unsupportedFormat": "Unsupported format. Please use MP4, MOV, AVI, WebM, or MKV.",
+        "uploadFailed": "Upload failed. Please check your internet connection.",
+        "analysisFailed": "Analysis failed. Please try again.",
+        "connectionFailed": "Connection failed. Please try again.",
+        "unknown": "An unknown error occurred."
+    },
+    "export": {
+        "title": "Export",
+        "format": "Format",
+        "template": "Template",
+        "includeTimecode": "Include Timecode",
+        "includeThumbnails": "Include Thumbnails",
+        "generating": "Generating document...",
+        "ready": "Export ready"
+    }
+}

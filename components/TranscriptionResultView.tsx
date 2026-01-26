@@ -26,11 +26,12 @@ interface TranscriptionResultViewProps {
 const EditableCell: React.FC<{
   value: string;
   onChange: (val: string) => void;
+  onBlur?: () => void;
   isFocused: boolean;
   onFocus: () => void;
   className?: string;
   multiline?: boolean;
-}> = ({ value, onChange, isFocused, onFocus, className, multiline }) => {
+}> = ({ value, onChange, onBlur, isFocused, onFocus, className, multiline }) => {
   const inputRef = useRef<HTMLInputElement | HTMLTextAreaElement>(null);
 
   useEffect(() => {
@@ -46,6 +47,7 @@ const EditableCell: React.FC<{
         value={value}
         onChange={(e) => onChange(e.target.value)}
         onFocus={onFocus}
+        onBlur={onBlur}
         onClick={(e) => e.stopPropagation()}
         className={`w-full bg-transparent border-none text-gray-300 focus:text-white focus:ring-0 p-0 resize-y min-h-[60px] leading-relaxed ${className || ''}`}
         rows={3}
@@ -59,6 +61,7 @@ const EditableCell: React.FC<{
       value={value}
       onChange={(e) => onChange(e.target.value)}
       onFocus={onFocus}
+      onBlur={onBlur}
       onClick={(e) => e.stopPropagation()}
       className={`w-full bg-transparent border-none text-gray-300 focus:text-white focus:ring-0 p-0 cursor-pointer hover:bg-white/5 rounded px-2 -ml-2 transition-colors ${className || ''}`}
     />
@@ -79,6 +82,9 @@ const TranscriptionResultView: React.FC<TranscriptionResultViewProps> = ({
   const [isCopied, setIsCopied] = useState(false);
   const [showExportModal, setShowExportModal] = useState(false);
   const videoRef = useRef<HTMLVideoElement>(null);
+
+  // Track original speaker name when editing starts (for propagation on blur)
+  const speakerEditOrigin = useRef<{ index: number; originalName: string } | null>(null);
 
   // Verification Hook
   const {
@@ -383,9 +389,34 @@ const TranscriptionResultView: React.FC<TranscriptionResultViewProps> = ({
                     <td className="px-4 py-3">
                       <EditableCell
                         value={segment.speaker ?? ''}
-                        onChange={(v) => updateCell(index, 'speaker', v)}
+                        onChange={(newName) => {
+                          // Just update this cell while typing
+                          updateCell(index, 'speaker', newName);
+                        }}
+                        onFocus={() => {
+                          // Capture original name when editing starts
+                          speakerEditOrigin.current = { index, originalName: segment.speaker };
+                          setCursor({ rowIndex: index, fieldId: 'speaker' });
+                        }}
+                        onBlur={() => {
+                          // On blur, propagate to all matching entries if name changed
+                          if (speakerEditOrigin.current && speakerEditOrigin.current.index === index) {
+                            const originalName = speakerEditOrigin.current.originalName;
+                            const newName = segment.speaker;
+
+                            // If name changed, update all OTHER segments with the original name
+                            if (originalName && newName && originalName !== newName) {
+                              // Find segments with the old name and update them
+                              segments.forEach((seg, i) => {
+                                if (i !== index && seg.speaker === originalName) {
+                                  updateCell(i, 'speaker', newName);
+                                }
+                              });
+                            }
+                            speakerEditOrigin.current = null;
+                          }
+                        }}
                         isFocused={cursor?.rowIndex === index && cursor?.fieldId === 'speaker'}
-                        onFocus={() => setCursor({ rowIndex: index, fieldId: 'speaker' })}
                         className="font-semibold text-pink-300"
                       />
                     </td>

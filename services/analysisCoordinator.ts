@@ -6,8 +6,8 @@
  */
 
 import { uploadAndCreateJob, getJob } from './api';
-import { AnalysisMode, FullAnalysisResult, UploadProgress, VideoMetadata } from '../types';
-import type { Job, AnalysisConfig } from '../types_v2';
+import { AnalysisMode, FullAnalysisResult, VideoMetadata } from '../types';
+import type { AnalysisConfig } from '../types_v2';
 
 export interface AnalysisOptions {
     file: File;
@@ -147,7 +147,7 @@ function mapResultsToV1Format(results: any): FullAnalysisResult {
 }
 
 /**
- * Perform analysis via backend
+ * Perform analysis via backend with robust polling and visibility handling
  */
 export async function performAnalysis(options: AnalysisOptions): Promise<FullAnalysisResult> {
     const { file, mode, onProgress, signal, videoMetadata, fileUri } = options;
@@ -180,51 +180,103 @@ export async function performAnalysis(options: AnalysisOptions): Promise<FullAna
 
     console.log(`[Coordinator] Job created: ${jobId}`);
 
-    // STEP 2: Poll for completion
+    // STEP 2: Poll for completion with visibility-aware polling
     onProgress('Analyzing video...', 50);
 
     const startTime = Date.now();
     const JOB_TIMEOUT = 180 * 60 * 1000; // 180 minutes
-    const POLL_INTERVAL = 3000;
+    let pollInterval = 3000; // Start at 3s
+    const MAX_POLL_INTERVAL = 10000; // Max 10s between polls
+    let consecutiveErrors = 0;
+    let lastProgress = 0;
 
-    while (true) {
-        // Check timeout
-        if (Date.now() - startTime > JOB_TIMEOUT) {
-            throw new Error('Analysis timed out. Please try again.');
+    // Track if document is visible (for adaptive polling)
+    let isVisible = typeof document !== 'undefined' ? document.visibilityState === 'visible' : true;
+
+    // Set up visibility change listener
+    const visibilityHandler = () => {
+        isVisible = document.visibilityState === 'visible';
+        if (isVisible) {
+            console.log('[Coordinator] Tab visible, resuming normal polling');
+            pollInterval = 3000; // Reset to fast polling when visible
         }
+    };
 
-        // Check abort signal
-        if (signal?.aborted) {
-            throw new Error('Analysis cancelled');
-        }
+    if (typeof document !== 'undefined') {
+        document.addEventListener('visibilitychange', visibilityHandler);
+    }
 
-        try {
-            const job = await getJob(jobId);
-
-            // Update progress
-            const progress = job.progress?.overall || 0;
-            const currentModule = job.progress?.currentModule || 'processing';
-            onProgress(`Analyzing: ${currentModule}...`, 50 + (progress * 0.5)); // 50-100%
-
-            // Check completion
-            if (job.status === 'completed') {
-                console.log('[Coordinator] Job completed');
-                onProgress('Analysis complete!', 100);
-                return mapResultsToV1Format(job.results || {});
+    try {
+        while (true) {
+            // Check timeout
+            if (Date.now() - startTime > JOB_TIMEOUT) {
+                throw new Error('Analysis timed out after 3 hours. Please try again.');
             }
 
-            if (job.status === 'failed') {
-                throw new Error(job.error?.message || 'Analysis failed');
+            // Check abort signal
+            if (signal?.aborted) {
+                throw new Error('Analysis cancelled');
             }
-        } catch (error) {
-            // Only throw if it's a real error, not a transient network issue
-            if (error instanceof Error && error.message.includes('not found')) {
-                throw error;
-            }
-            console.warn('[Coordinator] Poll error, retrying...', error);
-        }
 
-        // Wait before next poll
-        await new Promise(resolve => setTimeout(resolve, POLL_INTERVAL));
+            try {
+                const job = await getJob(jobId);
+                consecutiveErrors = 0; // Reset on success
+
+                // Update progress
+                const progress = job.progress?.overall || 0;
+                const currentModule = job.progress?.currentModule || 'processing';
+                lastProgress = progress;
+                onProgress(`Analyzing: ${currentModule}...`, 50 + (progress * 0.5)); // 50-100%
+
+                // Check completion
+                if (job.status === 'completed') {
+                    console.log('[Coordinator] Job completed');
+                    onProgress('Analysis complete!', 100);
+                    return mapResultsToV1Format(job.results || {});
+                }
+
+                if (job.status === 'failed') {
+                    const errorMsg = job.error?.message || 'Analysis failed';
+                    // Provide actionable error messages
+                    if (errorMsg.includes('timeout')) {
+                        throw new Error('A module timed out. Try running fewer modules or a shorter video.');
+                    }
+                    if (errorMsg.includes('rate limit') || errorMsg.includes('429')) {
+                        throw new Error('Service is busy. Please wait a few minutes and try again.');
+                    }
+                    throw new Error(errorMsg);
+                }
+            } catch (error) {
+                consecutiveErrors++;
+
+                // Only throw if it's a real error, not a transient network issue
+                if (error instanceof Error && error.message.includes('not found')) {
+                    throw error;
+                }
+
+                // Throw after too many consecutive errors
+                if (consecutiveErrors >= 5) {
+                    throw new Error('Lost connection to analysis server. Please check your internet and try again.');
+                }
+
+                // Show reconnecting status for transient errors
+                console.warn('[Coordinator] Poll error, retrying...', error);
+                onProgress(`Reconnecting... (attempt ${consecutiveErrors}/5)`, 50 + (lastProgress * 0.5));
+            }
+
+            // Adaptive polling: slower when tab is backgrounded
+            const currentPollInterval = isVisible ? pollInterval : Math.min(pollInterval * 2, 30000);
+
+            // Gradually increase poll interval to reduce server load
+            pollInterval = Math.min(pollInterval * 1.1, MAX_POLL_INTERVAL);
+
+            // Wait before next poll
+            await new Promise(resolve => setTimeout(resolve, currentPollInterval));
+        }
+    } finally {
+        // Clean up visibility listener
+        if (typeof document !== 'undefined') {
+            document.removeEventListener('visibilitychange', visibilityHandler);
+        }
     }
 }

@@ -53,7 +53,7 @@ export async function getUploadUrl(req: Request, res: Response) {
 
 /**
  * POST /api/jobs
- * Create a new analysis job
+ * Create a new analysis job with atomic locking to prevent duplicate workers
  */
 export async function createJob(req: Request, res: Response) {
     try {
@@ -135,11 +135,51 @@ export async function createJob(req: Request, res: Response) {
 
         console.log(`[Jobs] Created job: ${jobId}`);
 
-        // Trigger worker (fire and forget)
-        setImmediate(() => {
-            processJob(jobId).catch(err => {
+        // Trigger worker with atomic status transition to prevent duplicate workers
+        setImmediate(async () => {
+            try {
+                // Use transaction to atomically claim the job
+                const lockResult = await db.runTransaction(async (txn) => {
+                    const doc = await txn.get(docRef);
+                    const currentStatus = doc.data()?.status;
+
+                    // Only proceed if job is still queued (prevents duplicate workers)
+                    if (currentStatus !== 'queued') {
+                        console.log(`[Jobs] Job ${jobId} already claimed (status: ${currentStatus}), skipping`);
+                        return { locked: false };
+                    }
+
+                    // Atomically transition to processing
+                    txn.update(docRef, {
+                        status: 'processing',
+                        'progress.currentModule': 'starting',
+                        updatedAt: Timestamp.now()
+                    });
+                    return { locked: true };
+                });
+
+                if (lockResult.locked) {
+                    await processJob(jobId);
+                }
+            } catch (err) {
                 console.error(`[Jobs] Background worker failed for ${jobId}:`, err);
-            });
+
+                // CRITICAL: Ensure job is marked as failed even on catastrophic errors
+                // This prevents "zombie" jobs that are stuck in queued/processing forever
+                try {
+                    await docRef.update({
+                        status: 'failed',
+                        error: {
+                            code: 'WORKER_CRASH',
+                            message: err instanceof Error ? err.message : 'Worker crashed unexpectedly'
+                        },
+                        updatedAt: Timestamp.now(),
+                    });
+                    console.log(`[Jobs] Marked job ${jobId} as failed after worker crash`);
+                } catch (writeErr) {
+                    console.error(`[Jobs] CRITICAL: Failed to write error state for ${jobId}:`, writeErr);
+                }
+            }
         });
 
         res.status(201).json({ id: jobId, status: 'queued' });

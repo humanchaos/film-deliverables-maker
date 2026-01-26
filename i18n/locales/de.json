@@ -1,0 +1,129 @@
+{
+    "common": {
+        "loading": "Laden...",
+        "error": "Fehler",
+        "success": "Erfolgreich",
+        "cancel": "Abbrechen",
+        "confirm": "Bestätigen",
+        "save": "Speichern",
+        "delete": "Löschen",
+        "edit": "Bearbeiten",
+        "close": "Schließen",
+        "back": "Zurück",
+        "next": "Weiter",
+        "continue": "Fortfahren",
+        "yes": "Ja",
+        "no": "Nein"
+    },
+    "nav": {
+        "dashboard": "Dashboard",
+        "settings": "Einstellungen",
+        "history": "Verlauf",
+        "backToDashboard": "← Zurück zum Dashboard",
+        "help": "Hilfe"
+    },
+    "landing": {
+        "title": "Industry Standard Deliverables Maker",
+        "subtitle": "Professionelle Videoanalyse mit KI",
+        "connectCloud": "Cloud-Speicher verbinden",
+        "connectRequired": "Erforderlich zum Hochladen und Verarbeiten Ihrer Videos.",
+        "connectGCS": "Google Cloud Storage verbinden",
+        "connectDrive": "Google Drive verbinden",
+        "benefits": {
+            "largeFiles": "Große Videodateien hochladen (bis 2GB)",
+            "secure": "Sichere Cloud-Verarbeitung",
+            "anywhere": "Überall auf Deliverables zugreifen"
+        },
+        "connecting": "Verbinden..."
+    },
+    "language": {
+        "title": "Sprache wählen",
+        "subtitle": "Dies legt die Oberflächensprache fest.",
+        "outputNote": "Die Ausgabesprache wird automatisch aus dem Film erkannt.",
+        "continue": "Weiter →"
+    },
+    "upload": {
+        "title": "Video hochladen",
+        "dropzone": "Video hierher ziehen oder klicken",
+        "dropzoneActive": "Video hier ablegen...",
+        "analyzing": "Wird analysiert...",
+        "uploading": "Wird hochgeladen...",
+        "processing": "Wird verarbeitet...",
+        "selectFile": "Datei auswählen",
+        "maxSize": "Maximale Größe: 2GB",
+        "supportedFormats": "Unterstützte Formate: MP4, MOV, AVI, WebM, MKV"
+    },
+    "modules": {
+        "synopsis": "Synopsis",
+        "shotList": "Einstellungsliste",
+        "transcription": "Transkription",
+        "fauna": "Tierarten",
+        "graphics": "Grafiken & Bauchbinden",
+        "cast": "Personen",
+        "fullAnalysis": "Vollständige Analyse",
+        "techSpecs": "Technische Daten"
+    },
+    "actions": {
+        "analyze": "Analyse starten",
+        "analyzeSelected": "Ausgewählte analysieren",
+        "export": "Exportieren",
+        "exportExcel": "Als Excel exportieren",
+        "exportWord": "Als Word exportieren",
+        "exportCSV": "Als CSV exportieren",
+        "exportSRT": "Als SRT exportieren",
+        "download": "Herunterladen",
+        "copy": "Kopieren",
+        "copied": "Kopiert!",
+        "retry": "Erneut versuchen",
+        "startOver": "Neu starten"
+    },
+    "speakers": {
+        "title": "Sprecher verwalten",
+        "hint": "Benennen Sie einen Sprecher um, um die Änderung auf alle Segmente anzuwenden.",
+        "rename": "Umbenennen",
+        "applyToAll": "Auf alle anwenden",
+        "segments": "Segmente",
+        "newName": "Neuer Name..."
+    },
+    "results": {
+        "title": "Analyseergebnisse",
+        "noResults": "Keine Ergebnisse verfügbar",
+        "processing": "Analyse läuft...",
+        "complete": "Analyse abgeschlossen",
+        "failed": "Analyse fehlgeschlagen"
+    },
+    "settings": {
+        "title": "Projekteinstellungen",
+        "projectMetadata": "Projektdaten",
+        "productionCompany": "Produktionsfirma",
+        "seriesTitle": "Serientitel",
+        "episodeTitle": "Episodentitel",
+        "episodeNumber": "Episodennummer",
+        "director": "Regie",
+        "producer": "Produktion",
+        "editor": "Schnitt",
+        "exportTemplate": "Export-Vorlage",
+        "timecodeStart": "Timecode-Start",
+        "language": "Sprache",
+        "menuLanguage": "Menüsprache",
+        "outputLanguage": "Ausgabesprache",
+        "restartWalkthrough": "Einführung erneut starten"
+    },
+    "errors": {
+        "fileTooLarge": "Datei ist zu groß. Bitte wählen Sie eine Datei kleiner als 20GB.",
+        "unsupportedFormat": "Nicht unterstütztes Format. Bitte verwenden Sie MP4, MOV, AVI, WebM oder MKV.",
+        "uploadFailed": "Hochladen fehlgeschlagen. Bitte überprüfen Sie Ihre Internetverbindung.",
+        "analysisFailed": "Analyse fehlgeschlagen. Bitte versuchen Sie es erneut.",
+        "connectionFailed": "Verbindung fehlgeschlagen. Bitte versuchen Sie es erneut.",
+        "unknown": "Ein unbekannter Fehler ist aufgetreten."
+    },
+    "export": {
+        "title": "Exportieren",
+        "format": "Format",
+        "template": "Vorlage",
+        "includeTimecode": "Timecode einschließen",
+        "includeThumbnails": "Vorschaubilder einschließen",
+        "generating": "Dokument wird erstellt...",
+        "ready": "Export bereit"
+    }
+}

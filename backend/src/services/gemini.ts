@@ -3,6 +3,11 @@
  * 
  * SINGLE source of truth for ALL Gemini API operations.
  * No duplicates anywhere else in the codebase.
+ * 
+ * Key features:
+ * - Rate limiting to prevent 429 errors
+ * - Circuit breaker for cascading failure protection
+ * - Truncation detection for large responses
  */
 
 import { GoogleGenAI, Type } from '@google/genai';
@@ -12,6 +17,7 @@ import * as path from 'path';
 import { config } from '../config/env.js';
 import * as storage from './storage.js';
 import { retry, isRetryableError } from '../utils/retry.js';
+import { geminiRateLimiter, geminiCircuitBreaker } from '../utils/rateLimiter.js';
 import { secondsToTimecode, secondsToTime } from '../utils/timecode.js';
 import type {
     TranscriptionResult,
@@ -28,8 +34,81 @@ import type {
 // Initialize Gemini client
 const genai = new GoogleGenAI({ apiKey: config.geminiApiKey });
 
-// Model to use for all operations
-const MODEL = 'gemini-2.0-flash';
+// Model selection based on task complexity
+const MODELS = {
+    fast: 'gemini-2.0-flash',      // For bulk processing
+    quality: 'gemini-2.5-pro',      // For complex reasoning (synopsis, cast bios)
+};
+const MODEL = MODELS.fast; // Default to fast model
+
+// ═══════════════════════════════════════════════════════════════════════════
+// CONTEXT CACHING
+// ═══════════════════════════════════════════════════════════════════════════
+
+// Cache TTL: 1 hour (enough for any job, minimizes storage costs)
+const CACHE_TTL_SECONDS = 3600;
+
+// In-memory cache name store (per job - cleared after job completes)
+const activeCaches = new Map<string, string>(); // jobId -> cacheName
+
+/**
+ * Create a cached context for the video file
+ * This allows reusing the processed video tokens across multiple API calls
+ * Cost savings: ~90% reduction in input tokens for subsequent calls
+ */
+export async function createVideoCache(
+    fileUri: string,
+    mimeType: string,
+    jobId: string
+): Promise<string | null> {
+    try {
+        console.log(`[Gemini] Creating context cache for job ${jobId}...`);
+
+        const cache = await genai.caches.create({
+            model: MODEL,
+            config: {
+                contents: [
+                    { parts: [{ fileData: { fileUri, mimeType } }] }
+                ],
+                ttl: `${CACHE_TTL_SECONDS}s`,
+                displayName: `job_${jobId}_cache`,
+            },
+        });
+
+        const cacheName = cache.name!;
+        activeCaches.set(jobId, cacheName);
+        console.log(`[Gemini] Cache created: ${cacheName}`);
+
+        return cacheName;
+    } catch (error) {
+        console.warn(`[Gemini] Failed to create cache, falling back to direct file access:`, error);
+        return null;
+    }
+}
+
+/**
+ * Get the cached context name for a job (if available)
+ */
+export function getCacheName(jobId: string): string | undefined {
+    return activeCaches.get(jobId);
+}
+
+/**
+ * Delete the cache after job completes (cleanup)
+ */
+export async function deleteVideoCache(jobId: string): Promise<void> {
+    const cacheName = activeCaches.get(jobId);
+    if (!cacheName) return;
+
+    try {
+        await genai.caches.delete({ name: cacheName });
+        activeCaches.delete(jobId);
+        console.log(`[Gemini] Cache deleted: ${cacheName}`);
+    } catch (error) {
+        console.warn(`[Gemini] Failed to delete cache ${cacheName}:`, error);
+        activeCaches.delete(jobId); // Remove from memory anyway
+    }
+}
 
 // ═══════════════════════════════════════════════════════════════════════════
 // FILE UPLOAD
@@ -95,23 +174,27 @@ export async function uploadToGemini(
 
         console.log(`[Gemini] Upload started: ${uploadResult.name}`);
 
-        // Wait for processing WITH TIMEOUT
-        // Max 2 hours at 5s intervals = 1440 iterations
-        const MAX_PROCESSING_POLLS = 1440;
+        // Wait for processing WITH TIMEOUT and EXPONENTIAL BACKOFF
+        // Max 2 hours with increasing poll intervals
+        const MAX_PROCESSING_TIME_MS = 2 * 60 * 60 * 1000; // 2 hours
         let file = uploadResult;
-        let pollCount = 0;
+        let pollInterval = 5000; // Start at 5s
+        const MAX_POLL_INTERVAL = 30000; // Max 30s between polls
+        const startTime = Date.now();
 
-        while (file.state === 'PROCESSING' && pollCount < MAX_PROCESSING_POLLS) {
-            pollCount++;
-            if (pollCount % 12 === 0) { // Log every minute
-                console.log(`[Gemini] Processing... (${Math.floor(pollCount * 5 / 60)} minutes)`);
+        while (file.state === 'PROCESSING' && (Date.now() - startTime) < MAX_PROCESSING_TIME_MS) {
+            await sleep(pollInterval);
+            pollInterval = Math.min(pollInterval * 1.5, MAX_POLL_INTERVAL); // Exponential backoff
+
+            const elapsedMinutes = Math.floor((Date.now() - startTime) / 60000);
+            if (elapsedMinutes > 0 && elapsedMinutes % 5 === 0) { // Log every 5 minutes
+                console.log(`[Gemini] Processing... (${elapsedMinutes} minutes)`);
             }
-            await sleep(5000);
             file = await genai.files.get({ name: file.name! });
         }
 
-        if (pollCount >= MAX_PROCESSING_POLLS) {
-            throw new Error(`Gemini file processing timeout after ${MAX_PROCESSING_POLLS * 5 / 60} minutes`);
+        if ((Date.now() - startTime) >= MAX_PROCESSING_TIME_MS) {
+            throw new Error(`Gemini file processing timeout after 2 hours`);
         }
 
         if (file.state === 'FAILED') {
@@ -277,9 +360,10 @@ export async function generateSynopsis(
         loglineMaxWords: 30,
         summaryMaxWords: 100,
         language: 'English',
-    }
+    },
+    cacheName?: string
 ): Promise<SynopsisResult> {
-    console.log(`[Gemini] Generating synopsis...`);
+    console.log(`[Gemini] Generating synopsis...${cacheName ? ' (using cache)' : ''}`);
 
     const prompt = `Analyze this video and create a compelling synopsis.
 
@@ -304,7 +388,7 @@ Write for a professional pitch deck. Be evocative and compelling.`;
             targetAudience: { type: Type.STRING },
         },
         required: ['title', 'logline', 'summary', 'fullSynopsis', 'themes', 'targetAudience'],
-    });
+    }, undefined, cacheName);
 
     console.log(`[Gemini] Synopsis complete: "${response.title}"`);
     return response as SynopsisResult;
@@ -317,9 +401,10 @@ Write for a professional pitch deck. Be evocative and compelling.`;
 export async function detectFauna(
     fileUri: string,
     mimeType: string,
-    faunaConfig: FaunaConfig = { primaryLanguage: 'English', secondaryLanguage: 'German' }
+    faunaConfig: FaunaConfig = { primaryLanguage: 'English', secondaryLanguage: 'German' },
+    cacheName?: string
 ): Promise<FaunaResult> {
-    console.log(`[Gemini] Detecting fauna...`);
+    console.log(`[Gemini] Detecting fauna...${cacheName ? ' (using cache)' : ''}`);
 
     const prompt = `Identify every animal visible in this video.
 
@@ -357,7 +442,7 @@ Be thorough - identify every distinct sighting.`;
             },
         },
         required: ['sightings'],
-    });
+    }, undefined, cacheName);
 
     const sightings = (response.sightings || []).map((s: any, i: number) => ({
         id: `fauna_${i}`,
@@ -391,9 +476,10 @@ Be thorough - identify every distinct sighting.`;
 export async function detectGraphics(
     fileUri: string,
     mimeType: string,
-    duration: number
+    duration: number,
+    cacheName?: string
 ): Promise<GraphicsResult> {
-    console.log(`[Gemini] Detecting graphics...`);
+    console.log(`[Gemini] Detecting graphics...${cacheName ? ' (using cache)' : ''}`);
 
     const prompt = `Identify all on-screen text and graphics in this video.
 
@@ -432,7 +518,7 @@ For each, provide:
             programTitle: { type: Type.STRING },
         },
         required: ['entries'],
-    });
+    }, undefined, cacheName);
 
     console.log(`[Gemini] Graphics detection complete: ${response.entries?.length || 0} entries`);
     return {
@@ -448,9 +534,10 @@ For each, provide:
 
 export async function detectCast(
     fileUri: string,
-    mimeType: string
+    mimeType: string,
+    cacheName?: string
 ): Promise<CastResult> {
-    console.log(`[Gemini] Detecting cast...`);
+    console.log(`[Gemini] Detecting cast...${cacheName ? ' (using cache)' : ''}`);
 
     const prompt = `Identify all people visible in this video.
 
@@ -483,7 +570,7 @@ For unidentified people, use descriptive names.`;
             },
         },
         required: ['people'],
-    });
+    }, undefined, cacheName);
 
     const people = (response.people || []).map((p: any, i: number) => ({
         id: `person_${i}`,
@@ -515,19 +602,28 @@ function isRealName(name: string): boolean {
 // SHOT ENRICHMENT
 // ═══════════════════════════════════════════════════════════════════════════
 
+// Progress callback type for intra-module updates
+export type ProgressCallback = (percent: number, message: string) => void;
+
 export async function enrichShots(
     fileUri: string,
     mimeType: string,
     shots: Array<{ tcIn: string; tcOut: string }>,
-    language = 'English'
+    language = 'English',
+    cacheName?: string,
+    onProgress?: ProgressCallback
 ): Promise<Shot[]> {
-    console.log(`[Gemini] Enriching ${shots.length} shots...`);
+    console.log(`[Gemini] Enriching ${shots.length} shots...${cacheName ? ' (using cache)' : ''}`);
 
-    const BATCH_SIZE = 50;
+    // Dynamic batch size based on shot count (larger batches = fewer API calls = lower cost)
+    const BATCH_SIZE = shots.length > 200 ? 100 : 50;
 
     if (shots.length <= BATCH_SIZE) {
         try {
-            return await enrichShotsBatch(fileUri, mimeType, shots, language);
+            onProgress?.(50, 'Processing shots...');
+            const result = await enrichShotsBatch(fileUri, mimeType, shots, language, cacheName);
+            onProgress?.(100, 'Complete');
+            return result;
         } catch (error) {
             console.warn(`[Gemini] Shot enrichment failed, returning structural data only:`, error);
             return shots.map((shot, i) => ({
@@ -544,15 +640,19 @@ export async function enrichShots(
 
     const enrichedShots: Shot[] = [];
     let failedBatches = 0;
+    const totalBatches = Math.ceil(shots.length / BATCH_SIZE);
 
     for (let i = 0; i < shots.length; i += BATCH_SIZE) {
         const batch = shots.slice(i, i + BATCH_SIZE);
         const batchNum = Math.floor(i / BATCH_SIZE) + 1;
-        const totalBatches = Math.ceil(shots.length / BATCH_SIZE);
         console.log(`[Gemini] Enriching batch ${batchNum}/${totalBatches}...`);
 
+        // Report progress
+        const progressPct = Math.floor((batchNum / totalBatches) * 100);
+        onProgress?.(progressPct, `Processing batch ${batchNum}/${totalBatches}`);
+
         try {
-            const batchResults = await enrichShotsBatch(fileUri, mimeType, batch, language);
+            const batchResults = await enrichShotsBatch(fileUri, mimeType, batch, language, cacheName);
             enrichedShots.push(...batchResults.map((s, j) => ({ ...s, index: i + j + 1 })));
         } catch (error) {
             // Log but continue - return structural data for this batch
@@ -589,7 +689,8 @@ async function enrichShotsBatch(
     fileUri: string,
     mimeType: string,
     shots: Array<{ tcIn: string; tcOut: string }>,
-    language: string
+    language: string,
+    cacheName?: string
 ): Promise<Shot[]> {
     const shotList = shots.map((s, i) => ({
         id: i,
@@ -622,7 +723,7 @@ Use professional film terminology.`;
             },
             required: ['id', 'description', 'action', 'audio'],
         },
-    });
+    }, undefined, cacheName);
 
     const enrichments = Array.isArray(response) ? response : [];
     const enrichmentMap = new Map(enrichments.map((e: any) => [e.id, e]));
@@ -660,38 +761,97 @@ function calculateDuration(tcIn: string, tcOut: string): string {
 // INTERNAL HELPERS
 // ═══════════════════════════════════════════════════════════════════════════
 
+/**
+ * Call Gemini API with rate limiting, circuit breaker, and retry logic
+ * Supports context caching for token cost reduction
+ */
 async function callGemini(
     prompt: string,
     fileUri: string,
     mimeType: string,
-    schema: any
+    schema: any,
+    expectedMinItems?: number, // For truncation detection
+    cacheName?: string // Optional cached content name
 ): Promise<any> {
-    return retry(
-        async () => {
-            const response = await genai.models.generateContent({
-                model: MODEL,
-                contents: [
-                    { fileData: { fileUri, mimeType } },
-                    { text: prompt },
-                ],
-                config: {
-                    responseMimeType: 'application/json',
-                    responseSchema: schema,
-                },
-            });
+    // Check circuit breaker
+    if (!geminiCircuitBreaker.canRequest()) {
+        throw new Error('Circuit breaker open: too many consecutive Gemini failures. Waiting for recovery.');
+    }
 
-            const text = response.text || '';
-            if (!text || text.trim().length < 10) {
-                return schema.type === Type.ARRAY ? [] : {};
+    try {
+        // Acquire rate limit token
+        await geminiRateLimiter.acquire();
+
+        const result = await retry(
+            async () => {
+                // Build content based on whether we have a cache or not
+                const generateParams = cacheName
+                    ? {
+                        // Use cached content (90% cheaper)
+                        model: MODEL,
+                        contents: [{ text: prompt }],
+                        config: {
+                            responseMimeType: 'application/json',
+                            responseSchema: schema,
+                            cachedContent: cacheName,
+                        },
+                    }
+                    : {
+                        // No cache - send file directly
+                        model: MODEL,
+                        contents: [
+                            { fileData: { fileUri, mimeType } },
+                            { text: prompt },
+                        ],
+                        config: {
+                            responseMimeType: 'application/json',
+                            responseSchema: schema,
+                        },
+                    };
+
+                const response = await genai.models.generateContent(generateParams);
+
+                // Check for truncation (output token limit hit)
+                const finishReason = response.candidates?.[0]?.finishReason;
+                if (finishReason === 'MAX_TOKENS') {
+                    console.warn('[Gemini] Response truncated due to MAX_TOKENS');
+                    throw new Error('Response truncated: MAX_TOKENS. Consider reducing batch size.');
+                }
+                if (finishReason === 'SAFETY') {
+                    console.warn('[Gemini] Response blocked due to SAFETY filters');
+                    throw new Error('Response blocked by safety filters.');
+                }
+
+                const text = response.text || '';
+                if (!text || text.trim().length < 10) {
+                    console.warn('[Gemini] Empty or near-empty response received');
+                    return schema.type === Type.ARRAY ? [] : {};
+                }
+
+                const parsed = parseJson(text);
+
+                // Validate minimum expected items (truncation detection)
+                if (expectedMinItems && Array.isArray(parsed) && parsed.length < expectedMinItems * 0.5) {
+                    console.warn(`[Gemini] Parsed ${parsed.length} items, expected ~${expectedMinItems}. Possible truncation.`);
+                }
+
+                return parsed;
+            },
+            {
+                maxAttempts: 5,
+                retryIf: isRetryableError,
             }
+        );
 
-            return parseJson(text);
-        },
-        {
-            maxAttempts: 3,
-            retryIf: isRetryableError,
-        }
-    );
+        // Record success for circuit breaker
+        geminiCircuitBreaker.recordSuccess();
+        return result;
+
+    } catch (error) {
+        // Record failure for circuit breaker
+        geminiCircuitBreaker.recordFailure();
+        throw error;
+    }
 }
 
 function parseJson(text: string): any {
@@ -708,6 +868,11 @@ function parseJson(text: string): any {
     try {
         return JSON.parse(clean);
     } catch (error) {
+        // Check for truncation symptoms
+        if (clean.endsWith('...') || !clean.endsWith('}') && !clean.endsWith(']')) {
+            console.error('[Gemini] JSON appears truncated:', clean.substring(clean.length - 50));
+            throw new Error('Response truncated mid-JSON. Reduce batch size or try again.');
+        }
         console.error('[Gemini] JSON parse failed:', clean.substring(0, 200));
         throw new Error('Invalid JSON response from Gemini');
     }
