@@ -1,17 +1,14 @@
 import React, { useRef, useState, DragEvent } from 'react';
 import { useTranslation } from 'react-i18next';
-import { ArrowRight, Settings, Cloud, Loader2, ChevronDown } from 'lucide-react';
+import { ArrowRight, Settings, Cloud, Loader2 } from 'lucide-react';
 
-// Language options for inline selector
+// Language options for inline selector - reduced to 5 main languages
 const LANGUAGES = [
   { code: 'de', name: 'Deutsch', flag: '🇩🇪' },
   { code: 'en', name: 'English', flag: '🇬🇧' },
   { code: 'fr', name: 'Français', flag: '🇫🇷' },
-  { code: 'it', name: 'Italiano', flag: '🇮🇹' },
-  { code: 'es', name: 'Español', flag: '🇪🇸' },
-  { code: 'pt', name: 'Português', flag: '🇵🇹' },
   { code: 'ja', name: '日本語', flag: '🇯🇵' },
-  { code: 'zh', name: '中文', flag: '🇨🇳' },
+  { code: 'es', name: 'Español', flag: '🇪🇸' },
 ];
 
 interface FileUploadViewProps {
@@ -39,7 +36,6 @@ const FileUploadView: React.FC<FileUploadViewProps> = ({
   const { t, i18n } = useTranslation();
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [isDragging, setIsDragging] = useState(false);
-  const [showLanguageDropdown, setShowLanguageDropdown] = useState(false);
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -77,7 +73,6 @@ const FileUploadView: React.FC<FileUploadViewProps> = ({
   };
 
   const handleLanguageSelect = (langCode: string) => {
-    setShowLanguageDropdown(false);
     // Change i18n language
     i18n.changeLanguage(langCode);
     localStorage.setItem('menuLanguage', langCode);
@@ -111,32 +106,20 @@ const FileUploadView: React.FC<FileUploadViewProps> = ({
       );
     }
 
-    // State 2: Connected but no language - show language selector
+    // State 2: Connected but no language - show horizontal language buttons
     if (!hasLanguage) {
       return (
-        <div className="relative inline-block">
-          <button
-            onClick={() => setShowLanguageDropdown(!showLanguageDropdown)}
-            className="group bg-[#ccff00] hover:bg-[#bbe600] text-black font-mono text-sm tracking-widest px-8 py-4 uppercase transition-all duration-300 transform hover:scale-105 flex items-center gap-3 mx-auto"
-          >
-            {t('language.selectLanguage', 'SPRACHE WÄHLEN')}
-            <ChevronDown className={`w-5 h-5 transition-transform ${showLanguageDropdown ? 'rotate-180' : ''}`} />
-          </button>
-
-          {showLanguageDropdown && (
-            <div className="absolute top-full left-0 right-0 mt-2 bg-zinc-900 border border-zinc-700 rounded-lg shadow-2xl overflow-hidden z-50 max-h-80 overflow-y-auto">
-              {LANGUAGES.map((lang) => (
-                <button
-                  key={lang.code}
-                  onClick={() => handleLanguageSelect(lang.code)}
-                  className="w-full px-6 py-3 flex items-center gap-3 hover:bg-[#ccff00] hover:text-black transition-colors text-left text-white"
-                >
-                  <span className="text-xl">{lang.flag}</span>
-                  <span className="font-mono text-sm">{lang.name}</span>
-                </button>
-              ))}
-            </div>
-          )}
+        <div className="flex flex-wrap justify-center gap-3">
+          {LANGUAGES.map((lang) => (
+            <button
+              key={lang.code}
+              onClick={() => handleLanguageSelect(lang.code)}
+              className="bg-[#ccff00] hover:bg-[#bbe600] text-black font-mono text-sm px-4 py-3 transition-all duration-300 transform hover:scale-105 flex items-center gap-2 rounded-lg"
+            >
+              <span className="text-xl">{lang.flag}</span>
+              <span>{lang.name}</span>
+            </button>
+          ))}
         </div>
       );
     }
