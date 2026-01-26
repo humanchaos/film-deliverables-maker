@@ -162,18 +162,21 @@ const initialJobs: AllJobs = {
 };
 
 // Determine initial app status based on onboarding state
+// Every refresh brings user back to start - clear language selection
 function getInitialAppStatus(): AppStatus {
-  const hasCloudConnection = localStorage.getItem('cloudConnected') === 'true' ||
-    !!(authService.getAccessToken() || localStorage.getItem('gcsAccessToken'));
-  const hasLanguageSelected = !!localStorage.getItem('menuLanguage');
+  // Clear language selection on every refresh for fresh start experience
+  localStorage.removeItem('menuLanguage');
 
+  const hasCloudConnection = localStorage.getItem('cloudConnected') === 'true' ||
+    localStorage.getItem('cloudConnected') === 'demo' ||
+    !!(authService.getAccessToken() || localStorage.getItem('gcsAccessToken'));
+
+  // If not logged in → show cloud connect button
   if (!hasCloudConnection) {
     return AppStatus.LANDING;
   }
-  if (!hasLanguageSelected) {
-    return AppStatus.LANGUAGE_SELECT;
-  }
-  return AppStatus.UPLOAD;
+  // If logged in → always show language selector (since we cleared it above)
+  return AppStatus.LANGUAGE_SELECT;
 }
 
 const initialState: AppState = {
