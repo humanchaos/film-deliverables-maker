@@ -231,31 +231,57 @@ const ModeSelectView: React.FC<ModeSelectViewProps> = ({
         </h3>
 
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          {modes.map(modeInfo => {
-            const job = jobs[modeInfo.mode];
-            const hasResults = job.status === 'results';
-            // Enable deprecated modules if they have results from Full Analysis
-            const isDisabled = isUploading || (modeInfo.isDeprecated && !hasResults);
-            // Update description: show "View Results" prompt when results exist
-            const description = hasResults
-              ? t('modeSelect.resultsAvailable', '✓ Results available - Click to view')
-              : modeInfo.descriptionKey ? t(modeInfo.descriptionKey) : '';
+          {modes
+            // Filter: During full_analysis processing, only show full_analysis card
+            // After completion or when not running, show: full_analysis + any modules with results
+            .filter(modeInfo => {
+              const fullAnalysisJob = jobs['full_analysis'];
+              const isFullAnalysisRunning = fullAnalysisJob?.status === 'processing';
+              const hasAnyResults = Object.values(jobs).some(j => j.status === 'results');
 
-            return (
-              <ModeCard
-                key={modeInfo.mode}
-                mode={modeInfo.mode}
-                job={job}
-                onSelect={onModeSelect}
-                title={t(modeInfo.titleKey)}
-                description={description}
-                icon={modeInfo.icon}
-                className={modeInfo.className}
-                disabled={isDisabled}
-                doneLabel={t('modeSelect.done', 'Done')}
-              />
-            );
-          })}
+              // Always show full_analysis card
+              if (modeInfo.mode === 'full_analysis') return true;
+
+              // During full_analysis processing, hide all individual modules
+              if (isFullAnalysisRunning) return false;
+
+              // After processing is done, show modules that have results
+              const job = jobs[modeInfo.mode];
+              if (job?.status === 'results') return true;
+
+              // If no full analysis has been run yet (no results anywhere), show template_converter and techspecs
+              if (!hasAnyResults && (modeInfo.mode === 'template_converter' || modeInfo.mode === 'techspecs')) {
+                return true;
+              }
+
+              // Hide deprecated modules that don't have results
+              return false;
+            })
+            .map(modeInfo => {
+              const job = jobs[modeInfo.mode];
+              const hasResults = job.status === 'results';
+              // Enable deprecated modules if they have results from Full Analysis
+              const isDisabled = isUploading || (modeInfo.isDeprecated && !hasResults);
+              // Update description: show "View Results" prompt when results exist
+              const description = hasResults
+                ? t('modeSelect.resultsAvailable', '✓ Results available - Click to view')
+                : modeInfo.descriptionKey ? t(modeInfo.descriptionKey) : '';
+
+              return (
+                <ModeCard
+                  key={modeInfo.mode}
+                  mode={modeInfo.mode}
+                  job={job}
+                  onSelect={onModeSelect}
+                  title={t(modeInfo.titleKey)}
+                  description={description}
+                  icon={modeInfo.icon}
+                  className={modeInfo.className}
+                  disabled={isDisabled}
+                  doneLabel={t('modeSelect.done', 'Done')}
+                />
+              );
+            })}
         </div>
       </div>
     </div >
