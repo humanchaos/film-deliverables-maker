@@ -53,6 +53,15 @@
         "maxSize": "Maximale Größe: 2GB",
         "supportedFormats": "Unterstützte Formate: MP4, MOV, AVI, WebM, MKV"
     },
+    "fileUpload": {
+        "tagline1": "Bildgenau.",
+        "tagline2": "Vollautomatisch.",
+        "tagline3": "Branchenstandard",
+        "tagline4": "Deliverables.",
+        "goTakeBreak": "Mach mal Pause.",
+        "startUploading": "Upload starten",
+        "dropHere": "VIDEODATEI HIER ABLEGEN"
+    },
     "modules": {
         "synopsis": "Synopsis",
         "shotList": "Einstellungsliste",
@@ -62,6 +71,28 @@
         "cast": "Personen",
         "fullAnalysis": "Vollständige Analyse",
         "techSpecs": "Technische Daten"
+    },
+    "modeSelect": {
+        "chooseType": "Analysetyp wählen",
+        "uploadingDisabled": "Video wird hochgeladen... (Analyse deaktiviert)",
+        "downloadAll": "Alle herunterladen",
+        "library": "Bibliothek",
+        "newUpload": "Neuer Upload",
+        "feedback": "Feedback",
+        "done": "Fertig",
+        "resultsAvailable": "✓ Ergebnisse verfügbar - Klicken zum Anzeigen",
+        "fullAnalysis": "Vollständige Analyse generieren (Unified)",
+        "fullAnalysisDesc": "Alle Module auf einmal ausführen (Synopsis, Bio, Grafiken, Fauna, Transkription, Shotlist) über die Backend-Pipeline.",
+        "synopsis": "Synopsis generieren",
+        "bio": "Talent-Biografien generieren",
+        "graphics": "Grafiken & Bauchbinden finden",
+        "fauna": "Tierarten identifizieren",
+        "transcribe": "Audio/Video transkribieren",
+        "shotlist": "Shotlist generieren",
+        "templateConverter": "Template Converter",
+        "templateConverterDesc": "Inhalte eines Dokuments an das Layout und den Stil einer anderen Vorlage anpassen.",
+        "techspecs": "Technischer Spezifikationsbericht",
+        "techspecsDesc": "Ein professionelles Dokument mit technischen Spezifikationen (PBS/BBC-Stil) aus Video-Metadaten erstellen."
     },
     "actions": {
         "analyze": "Analyse starten",
@@ -110,12 +141,18 @@
         "restartWalkthrough": "Einführung erneut starten"
     },
     "errors": {
+        "title": "Ein Fehler ist aufgetreten",
         "fileTooLarge": "Datei ist zu groß. Bitte wählen Sie eine Datei kleiner als 20GB.",
         "unsupportedFormat": "Nicht unterstütztes Format. Bitte verwenden Sie MP4, MOV, AVI, WebM oder MKV.",
         "uploadFailed": "Hochladen fehlgeschlagen. Bitte überprüfen Sie Ihre Internetverbindung.",
         "analysisFailed": "Analyse fehlgeschlagen. Bitte versuchen Sie es erneut.",
         "connectionFailed": "Verbindung fehlgeschlagen. Bitte versuchen Sie es erneut.",
         "unknown": "Ein unbekannter Fehler ist aufgetreten."
+    },
+    "processing": {
+        "hint": "Dies kann einige Augenblicke dauern. Sie können dies im Hintergrund laufen lassen.",
+        "runInBackground": "Im Hintergrund ausführen",
+        "cancel": "Abbrechen (ESC)"
     },
     "export": {
         "title": "Exportieren",

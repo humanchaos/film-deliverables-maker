@@ -1,4 +1,5 @@
 import React from 'react';
+import { useTranslation } from 'react-i18next';
 
 interface ErrorPopupProps {
   errorMessage: string;
@@ -6,6 +7,8 @@ interface ErrorPopupProps {
 }
 
 const ErrorPopup: React.FC<ErrorPopupProps> = ({ errorMessage, onClose }) => {
+  const { t } = useTranslation();
+
   // Handle Escape key press to close the modal
   React.useEffect(() => {
     const handleKeyDown = (event: KeyboardEvent) => {
@@ -20,14 +23,14 @@ const ErrorPopup: React.FC<ErrorPopupProps> = ({ errorMessage, onClose }) => {
   }, [onClose]);
 
   return (
-    <div 
+    <div
       className="fixed inset-0 bg-black/70 flex items-center justify-center z-50 animate-fade-in"
       onClick={onClose}
       role="dialog"
       aria-modal="true"
       aria-labelledby="error-title"
     >
-      <div 
+      <div
         className="bg-gray-800 rounded-xl shadow-2xl p-6 sm:p-8 m-4 max-w-md w-full border border-red-500/50 transform animate-slide-up"
         onClick={(e) => e.stopPropagation()}
       >
@@ -39,7 +42,7 @@ const ErrorPopup: React.FC<ErrorPopupProps> = ({ errorMessage, onClose }) => {
           </div>
           <div className="flex-1">
             <h3 id="error-title" className="text-xl font-bold text-red-300 mb-3">
-              An Error Occurred
+              {t('errors.title', 'An Error Occurred')}
             </h3>
             <p className="text-gray-300 leading-relaxed">
               {errorMessage}
@@ -51,7 +54,7 @@ const ErrorPopup: React.FC<ErrorPopupProps> = ({ errorMessage, onClose }) => {
             onClick={onClose}
             className="px-6 py-2 bg-red-600 hover:bg-red-700 text-white font-semibold rounded-lg transition-all duration-200 transform hover:scale-105 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-offset-gray-800 focus:ring-red-500"
           >
-            Close
+            {t('common.close', 'Close')}
           </button>
         </div>
       </div>
@@ -60,3 +63,4 @@ const ErrorPopup: React.FC<ErrorPopupProps> = ({ errorMessage, onClose }) => {
 };
 
 export default ErrorPopup;
+

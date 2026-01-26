@@ -1,4 +1,5 @@
 import React, { useRef, useState, DragEvent } from 'react';
+import { useTranslation } from 'react-i18next';
 // Removed cached uploads feature - Gemini URIs expire and cause issues
 import { ArrowRight, Settings } from 'lucide-react';
 
@@ -9,6 +10,7 @@ interface FileUploadViewProps {
 }
 
 const FileUploadView: React.FC<FileUploadViewProps> = ({ onFileSelect, onUriSelect, onOpenSettings }) => {
+  const { t } = useTranslation();
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [isDragging, setIsDragging] = useState(false);
   // Removed recentUploads state - cached uploads feature removed
@@ -61,7 +63,7 @@ const FileUploadView: React.FC<FileUploadViewProps> = ({ onFileSelect, onUriSele
         <button
           onClick={onOpenSettings}
           className="absolute top-4 right-4 p-2 text-zinc-500 hover:text-[#ccff00] transition-colors z-50"
-          title="Login & Settings"
+          title={t('nav.settings')}
         >
           <Settings className="w-6 h-6" />
         </button>
@@ -74,21 +76,21 @@ const FileUploadView: React.FC<FileUploadViewProps> = ({ onFileSelect, onUriSele
         </h1>
 
         <div className="flex flex-col space-y-1 py-8">
-          <p className="font-mono text-zinc-500 text-xl tracking-wider">Frame-accurate.</p>
-          <p className="font-mono text-zinc-500 text-xl tracking-wider">Fully automatic.</p>
-          <p className="font-mono text-zinc-500 text-xl tracking-wider">Industry Standard</p>
-          <p className="font-mono text-zinc-500 text-xl tracking-wider">Deliverables.</p>
+          <p className="font-mono text-zinc-500 text-xl tracking-wider">{t('fileUpload.tagline1', 'Frame-accurate.')}</p>
+          <p className="font-mono text-zinc-500 text-xl tracking-wider">{t('fileUpload.tagline2', 'Fully automatic.')}</p>
+          <p className="font-mono text-zinc-500 text-xl tracking-wider">{t('fileUpload.tagline3', 'Industry Standard')}</p>
+          <p className="font-mono text-zinc-500 text-xl tracking-wider">{t('fileUpload.tagline4', 'Deliverables.')}</p>
         </div>
 
         <p className="font-serif italic text-white text-4xl pt-8 pb-12 opacity-90">
-          Go take a break.
+          {t('fileUpload.goTakeBreak', 'Go take a break.')}
         </p>
 
         <button
           onClick={() => fileInputRef.current?.click()}
           className="group bg-[#ccff00] hover:bg-[#bbe600] text-black font-mono text-sm tracking-widest px-8 py-4 uppercase transition-all duration-300 transform hover:scale-105 flex items-center gap-2 mx-auto"
         >
-          Start Uploading
+          {t('fileUpload.startUploading', 'Start Uploading')}
           <ArrowRight className="w-4 h-4 group-hover:translate-x-1 transition-transform" />
         </button>
       </div>
@@ -104,7 +106,7 @@ const FileUploadView: React.FC<FileUploadViewProps> = ({ onFileSelect, onUriSele
       {/* Drag Overlay Indicator */}
       {isDragging && (
         <div className="absolute inset-0 border-4 border-[#ccff00] bg-black/50 backdrop-blur-sm flex items-center justify-center pointer-events-none z-50">
-          <p className="text-[#ccff00] font-mono text-2xl animate-pulse">DROP VIDEO FILE HERE</p>
+          <p className="text-[#ccff00] font-mono text-2xl animate-pulse">{t('fileUpload.dropHere', 'DROP VIDEO FILE HERE')}</p>
         </div>
       )}
 
@@ -114,3 +116,4 @@ const FileUploadView: React.FC<FileUploadViewProps> = ({ onFileSelect, onUriSele
 };
 
 export default FileUploadView;
+

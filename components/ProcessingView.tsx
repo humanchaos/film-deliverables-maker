@@ -1,4 +1,5 @@
 import React from 'react';
+import { useTranslation } from 'react-i18next';
 
 interface ProcessingViewProps {
   message: string;
@@ -13,6 +14,8 @@ const ProcessingView: React.FC<ProcessingViewProps> = ({
   onCancel,
   onBack,
 }) => {
+  const { t } = useTranslation();
+
   return (
     <div className="flex flex-col items-center justify-center py-12 px-4">
       <div className="relative mb-8">
@@ -37,7 +40,7 @@ const ProcessingView: React.FC<ProcessingViewProps> = ({
       </div>
 
       <p className="text-sm text-gray-400 mb-6 text-center max-w-md">
-        This may take a few moments. You can let this run in the background.
+        {t('processing.hint', 'This may take a few moments. You can let this run in the background.')}
       </p>
 
       <div className="flex flex-col sm:flex-row gap-4">
@@ -45,13 +48,13 @@ const ProcessingView: React.FC<ProcessingViewProps> = ({
           onClick={onBack}
           className="px-6 py-2 bg-gray-700 hover:bg-gray-600 text-white font-semibold rounded-lg transition-all"
         >
-          Run in Background
+          {t('processing.runInBackground', 'Run in Background')}
         </button>
         <button
           onClick={onCancel}
           className="px-6 py-2 bg-red-600/20 hover:bg-red-600/30 border border-red-500/50 hover:border-red-500 text-red-400 hover:text-red-300 rounded-lg transition-all font-medium"
         >
-          Cancel (ESC)
+          {t('processing.cancel', 'Cancel (ESC)')}
         </button>
       </div>
     </div>

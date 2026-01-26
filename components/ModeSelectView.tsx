@@ -1,5 +1,6 @@
 
 import React from 'react';
+import { useTranslation } from 'react-i18next';
 import { AnalysisMode } from '../types';
 import { History, Settings } from 'lucide-react';
 
@@ -29,7 +30,8 @@ const ModeCard: React.FC<{
   icon: React.ReactNode;
   className: string;
   disabled?: boolean;
-}> = ({ mode, job, onSelect, title, description, icon, className, disabled }) => {
+  doneLabel: string;
+}> = ({ mode, job, onSelect, title, description, icon, className, disabled, doneLabel }) => {
   let statusIndicator: React.ReactNode = null;
 
   switch (job.status) {
@@ -48,7 +50,7 @@ const ModeCard: React.FC<{
       statusIndicator = (
         <div className="absolute top-2 right-2 flex items-center gap-1 bg-green-500/20 text-xs text-green-300 px-2 py-1 rounded-full">
           <span className="w-2 h-2 bg-green-400 rounded-full"></span>
-          Done
+          {doneLabel}
         </div>
       );
       break;
@@ -94,75 +96,76 @@ const ModeSelectView: React.FC<ModeSelectViewProps> = ({
   onDownloadAll, // New prop
   isUploading = false,
 }) => {
+  const { t } = useTranslation();
 
-  const modes: { mode: AnalysisMode; title: string; description: string; icon: React.ReactNode; className: string; isDeprecated?: boolean }[] = [
+  const modes: { mode: AnalysisMode; titleKey: string; descriptionKey: string; icon: React.ReactNode; className: string; isDeprecated?: boolean }[] = [
 
     {
       mode: 'full_analysis',
-      title: 'Generate Full Analysis Package (Unified)',
-      description: 'Run ALL modules at once (Synopsis, Bio, Graphics, Fauna, Transcription, Shot List) using the backend pipeline.',
+      titleKey: 'modeSelect.fullAnalysis',
+      descriptionKey: 'modeSelect.fullAnalysisDesc',
       icon: <svg className="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19.428 15.428a2 2 0 00-1.022-.547l-2.387-.477a6 6 0 00-3.86.517l-.318.158a6 6 0 01-3.86.517L6.05 15.21a2 2 0 00-1.806.547M8 4h8l-1 1v5.172a2 2 0 00.586 1.414l5 5c1.26 1.26.367 3.414-1.415 3.414H4.828c-1.782 0-2.674-2.154-1.414-3.414l5-5A2 2 0 009 10.172V5L8 4z" /></svg>,
       className: "col-span-1 md:col-span-2 bg-gradient-to-r from-pink-600 to-purple-800 border-2 border-white/20 hover:border-white/50 shadow-2xl"
     },
     {
       mode: 'synopsis',
-      title: 'Generate Synopsis',
-      description: '',
+      titleKey: 'modeSelect.synopsis',
+      descriptionKey: '',
       icon: <svg className="w-6 h-6 text-purple-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2-2z" /></svg>,
       className: "from-purple-600/20 to-indigo-600/20 hover:from-purple-600/30 hover:to-indigo-600/30 border-purple-500/30 hover:border-purple-400",
       isDeprecated: true
     },
     {
       mode: 'bio',
-      title: 'Generate Talent Bios',
-      description: '',
+      titleKey: 'modeSelect.bio',
+      descriptionKey: '',
       icon: <svg className="w-6 h-6 text-indigo-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" /></svg>,
       className: "from-indigo-600/20 to-blue-600/20 hover:from-indigo-600/30 hover:to-blue-600/30 border-indigo-500/30 hover:border-indigo-400",
       isDeprecated: true
     },
     {
       mode: 'graphics',
-      title: 'Find Graphics & Lower Thirds',
-      description: '',
+      titleKey: 'modeSelect.graphics',
+      descriptionKey: '',
       icon: <svg className="w-6 h-6 text-emerald-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 4v16M17 4v16M3 8h4m10 0h4M3 12h18M3 16h4m10 0h4M4 20h16a1 1 0 001-1V5a1 1 0 00-1-1H4a1 1 0 00-1 1v14a1 1 0 001 1z" /></svg>,
       className: "from-emerald-600/20 to-teal-600/20 hover:from-emerald-600/30 hover:to-teal-600/30 border-emerald-500/30 hover:border-emerald-400",
       isDeprecated: true
     },
     {
       mode: 'fauna',
-      title: 'Identify Animal Species',
-      description: '',
+      titleKey: 'modeSelect.fauna',
+      descriptionKey: '',
       icon: <svg className="w-6 h-6 text-amber-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M14 10l-2 1m0 0l-2-1m2 1v2.5M20 7l-2 1m2-1l-2-1m2 1v2.5M14 4l-2-1-2 1M4 7l2-1M4 7l2 1M4 7v2.5M12 21l-2-1m2 1l2-1m-2 1v-2.5M6 18l-2-1v-2.5M18 18l2-1v-2.5" /></svg>,
       className: "from-amber-600/20 to-orange-600/20 hover:from-amber-600/30 hover:to-orange-600/30 border-amber-500/30 hover:border-amber-400",
       isDeprecated: true
     },
     {
       mode: 'transcribe',
-      title: 'Transcribe Audio/Video',
-      description: '',
+      titleKey: 'modeSelect.transcribe',
+      descriptionKey: '',
       icon: <svg className="w-6 h-6 text-pink-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2-2z" /></svg>,
       className: "from-pink-600/20 to-rose-600/20 hover:from-pink-600/30 hover:to-rose-600/30 border-pink-500/30 hover:border-pink-400",
       isDeprecated: true
     },
     {
       mode: 'shotlist',
-      title: 'Generate Shot List',
-      description: '',
+      titleKey: 'modeSelect.shotlist',
+      descriptionKey: '',
       icon: <svg className="w-6 h-6 text-cyan-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z" /></svg>,
       className: "from-cyan-600/20 to-sky-600/20 hover:from-cyan-600/30 hover:to-sky-600/30 border-cyan-500/30 hover:border-cyan-400",
       isDeprecated: true
     },
     {
       mode: 'template_converter',
-      title: 'Template Converter',
-      description: 'Adapt content from one document to match the layout and style of another template.',
+      titleKey: 'modeSelect.templateConverter',
+      descriptionKey: 'modeSelect.templateConverterDesc',
       icon: <svg className="w-6 h-6 text-orange-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7v8a2 2 0 002 2h6M8 7V5a2 2 0 012-2h4.586a1 1 0 01.707.293l4.414 4.414a1 1 0 01.293.707V15a2 2 0 01-2 2h-2M8 7H6a2 2 0 00-2 2v10a2 2 0 002 2h8a2 2 0 002-2v-2" /></svg>,
       className: "from-orange-600/20 to-burnt-orange-600/20 hover:from-orange-600/30 hover:to-burnt-orange-600/30 border-orange-500/30 hover:border-orange-400"
     },
     {
       mode: 'techspecs',
-      title: 'Technical Specs Report',
-      description: 'Generate a professional Technical Specifications document (PBS/BBC style) from video metadata.',
+      titleKey: 'modeSelect.techspecs',
+      descriptionKey: 'modeSelect.techspecsDesc',
       icon: <svg className="w-6 h-6 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2-2z" /></svg>,
       className: "from-gray-600/20 to-slate-600/20 hover:from-gray-600/30 hover:to-slate-600/30 border-gray-500/30 hover:border-gray-400"
     }
@@ -185,7 +188,7 @@ const ModeSelectView: React.FC<ModeSelectViewProps> = ({
               className="px-4 py-2 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 text-white rounded-lg flex items-center gap-2 transition-all shadow-lg hover:shadow-blue-500/20"
             >
               <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" /><polyline points="7 10 12 15 17 10" /><line x1="12" y1="15" x2="12" y2="3" /></svg>
-              Download All
+              {t('modeSelect.downloadAll', 'Download All')}
             </button>
           )}
 
@@ -194,17 +197,17 @@ const ModeSelectView: React.FC<ModeSelectViewProps> = ({
             className="px-4 py-2 border border-blue-500/50 hover:bg-blue-500/10 text-blue-300 rounded-lg flex items-center gap-2 transition-colors"
           >
             <Settings size={18} />
-            Settings
+            {t('nav.settings', 'Settings')}
           </button>
           <button
             onClick={onViewHistory}
             className="px-4 py-2 bg-gray-700 hover:bg-gray-600 text-gray-200 rounded-lg flex items-center gap-2 transition-colors"
           >
             <History size={18} />
-            Library
+            {t('modeSelect.library', 'Library')}
           </button>
           <button onClick={onBack} className="px-4 py-2 border border-gray-600 hover:bg-gray-700 text-gray-300 rounded-lg transition-colors whitespace-nowrap">
-            New Upload
+            {t('modeSelect.newUpload', 'New Upload')}
           </button>
 
           <button
@@ -217,14 +220,14 @@ const ModeSelectView: React.FC<ModeSelectViewProps> = ({
             }}
             className="md:hidden px-4 py-2 border border-blue-500/30 text-blue-400 rounded-lg hover:bg-blue-500/10 transition-colors"
           >
-            Feedback
+            {t('modeSelect.feedback', 'Feedback')}
           </button>
         </div>
       </div>
 
       <div>
         <h3 className="text-xl font-bold text-gray-200 mb-4 text-center">
-          {isUploading ? 'Video Uploading... (Analysis Disabled)' : 'Choose Analysis Type'}
+          {isUploading ? t('modeSelect.uploadingDisabled', 'Video Uploading... (Analysis Disabled)') : t('modeSelect.chooseType', 'Choose Analysis Type')}
         </h3>
 
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -235,8 +238,8 @@ const ModeSelectView: React.FC<ModeSelectViewProps> = ({
             const isDisabled = isUploading || (modeInfo.isDeprecated && !hasResults);
             // Update description: show "View Results" prompt when results exist
             const description = hasResults
-              ? `✓ Results available - Click to view`
-              : modeInfo.description;
+              ? t('modeSelect.resultsAvailable', '✓ Results available - Click to view')
+              : modeInfo.descriptionKey ? t(modeInfo.descriptionKey) : '';
 
             return (
               <ModeCard
@@ -244,11 +247,12 @@ const ModeSelectView: React.FC<ModeSelectViewProps> = ({
                 mode={modeInfo.mode}
                 job={job}
                 onSelect={onModeSelect}
-                title={modeInfo.title}
+                title={t(modeInfo.titleKey)}
                 description={description}
                 icon={modeInfo.icon}
                 className={modeInfo.className}
                 disabled={isDisabled}
+                doneLabel={t('modeSelect.done', 'Done')}
               />
             );
           })}
@@ -259,3 +263,4 @@ const ModeSelectView: React.FC<ModeSelectViewProps> = ({
 };
 
 export default ModeSelectView;
+

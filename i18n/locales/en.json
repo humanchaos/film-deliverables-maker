@@ -53,6 +53,15 @@
         "maxSize": "Maximum size: 2GB",
         "supportedFormats": "Supported formats: MP4, MOV, AVI, WebM, MKV"
     },
+    "fileUpload": {
+        "tagline1": "Frame-accurate.",
+        "tagline2": "Fully automatic.",
+        "tagline3": "Industry Standard",
+        "tagline4": "Deliverables.",
+        "goTakeBreak": "Go take a break.",
+        "startUploading": "Start Uploading",
+        "dropHere": "DROP VIDEO FILE HERE"
+    },
     "modules": {
         "synopsis": "Synopsis",
         "shotList": "Shot List",
@@ -62,6 +71,28 @@
         "cast": "Cast",
         "fullAnalysis": "Full Analysis",
         "techSpecs": "Technical Specifications"
+    },
+    "modeSelect": {
+        "chooseType": "Choose Analysis Type",
+        "uploadingDisabled": "Video Uploading... (Analysis Disabled)",
+        "downloadAll": "Download All",
+        "library": "Library",
+        "newUpload": "New Upload",
+        "feedback": "Feedback",
+        "done": "Done",
+        "resultsAvailable": "✓ Results available - Click to view",
+        "fullAnalysis": "Generate Full Analysis Package (Unified)",
+        "fullAnalysisDesc": "Run ALL modules at once (Synopsis, Bio, Graphics, Fauna, Transcription, Shot List) using the backend pipeline.",
+        "synopsis": "Generate Synopsis",
+        "bio": "Generate Talent Bios",
+        "graphics": "Find Graphics & Lower Thirds",
+        "fauna": "Identify Animal Species",
+        "transcribe": "Transcribe Audio/Video",
+        "shotlist": "Generate Shot List",
+        "templateConverter": "Template Converter",
+        "templateConverterDesc": "Adapt content from one document to match the layout and style of another template.",
+        "techspecs": "Technical Specs Report",
+        "techspecsDesc": "Generate a professional Technical Specifications document (PBS/BBC style) from video metadata."
     },
     "actions": {
         "analyze": "Start Analysis",
@@ -110,12 +141,18 @@
         "restartWalkthrough": "Restart Walkthrough"
     },
     "errors": {
+        "title": "An Error Occurred",
         "fileTooLarge": "File is too large. Please select a file smaller than 20GB.",
         "unsupportedFormat": "Unsupported format. Please use MP4, MOV, AVI, WebM, or MKV.",
         "uploadFailed": "Upload failed. Please check your internet connection.",
         "analysisFailed": "Analysis failed. Please try again.",
         "connectionFailed": "Connection failed. Please try again.",
         "unknown": "An unknown error occurred."
+    },
+    "processing": {
+        "hint": "This may take a few moments. You can let this run in the background.",
+        "runInBackground": "Run in Background",
+        "cancel": "Cancel (ESC)"
     },
     "export": {
         "title": "Export",
