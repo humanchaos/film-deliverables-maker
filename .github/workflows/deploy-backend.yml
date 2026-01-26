@@ -27,4 +27,6 @@ jobs:
             --source . \
             --region europe-west1 \
             --allow-unauthenticated \
-            --project ${{ secrets.GCP_PROJECT_ID }}
+            --project ${{ secrets.GCP_PROJECT_ID }} \
+            --timeout=300 \
+            --cpu-boost
