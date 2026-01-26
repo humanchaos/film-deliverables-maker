@@ -71,9 +71,7 @@ const SceneDetectorDebugView = lazy(() => import('./components/SceneDetectorDebu
 const ModelRouterSettings = lazy(() => import('./components/ModelRouterSettings').then(module => ({ default: module.ModelRouterSettings })));
 const SemanticSearchView = lazy(() => import('./components/SemanticSearchView').then(module => ({ default: module.SemanticSearchView })));
 
-// New onboarding pages
-const LandingPage = lazy(() => import('./pages/Landing'));
-const LanguageSelection = lazy(() => import('./pages/LanguageSelection'));
+// LandingPage and LanguageSelection removed - now using unified FileUploadView with inline selectors
 
 // ═══════════════════════════════════════════════════════════════════════════════
 // TYPES & INTERFACES
@@ -106,6 +104,7 @@ interface AppState {
   gcsProjectId?: string;
   useProMode: boolean; // Toggle for Zero Hallucination
   semanticIndexing: { status: 'idle' | 'indexing' | 'indexed'; progress: number };
+  isConnecting: boolean; // Cloud connection in progress
 }
 
 type AppAction =
@@ -133,6 +132,7 @@ type AppAction =
   | { type: 'DISCONNECT_GOOGLE_USER' }
   | { type: 'RESET_ALL' }
   | { type: 'UPDATE_SEMANTIC_INDEXING'; payload: { status: 'idle' | 'indexing' | 'indexed'; progress: number } }
+  | { type: 'SET_IS_CONNECTING'; payload: boolean }
   | { type: 'LOAD_SAVED_ANALYSIS'; payload: SavedAnalysis }
   | { type: 'APPEND_JOB_RESULT'; payload: { mode: AnalysisMode; data: any[] } };
 
@@ -202,6 +202,7 @@ const initialState: AppState = {
   // Restore Pro Mode preference
   useProMode: localStorage.getItem('useProMode') === 'true',
   semanticIndexing: { status: 'idle', progress: 0 },
+  isConnecting: false,
 };
 
 
@@ -384,6 +385,9 @@ function appReducer(state: AppState, action: AppAction): AppState {
 
     case 'UPDATE_FAUNA_CONFIG':
       return { ...state, faunaConfig: { ...state.faunaConfig, ...action.payload } };
+
+    case 'SET_IS_CONNECTING':
+      return { ...state, isConnecting: action.payload };
 
     case 'UPDATE_SPEAKER':
       if (!state.jobs.transcribe.result) return state;
@@ -1277,12 +1281,23 @@ const App: React.FC = () => {
 
   const renderContent = () => {
     switch (state.appStatus) {
-      // New onboarding flow
+      // Unified landing page - button changes based on connection/language state
       case AppStatus.LANDING:
+      case AppStatus.LANGUAGE_SELECT:
+      case AppStatus.UPLOAD: {
+        const isConnected = localStorage.getItem('cloudConnected') !== null;
+        const hasLanguage = localStorage.getItem('menuLanguage') !== null;
+
         return (
-          <LandingPage
+          <FileUploadView
+            onFileSelect={handleFileSelect}
+            onUriSelect={handleUriSelect}
+            onOpenSettings={handleProjectSettings}
+            isConnected={isConnected}
+            hasLanguage={hasLanguage}
+            isConnecting={state.isConnecting}
             onConnect={async () => {
-              // Try actual Google OAuth flow, fallback to demo mode
+              dispatch({ type: 'SET_IS_CONNECTING', payload: true });
               try {
                 const user = await authService.signIn();
                 localStorage.setItem('cloudConnected', 'true');
@@ -1290,31 +1305,24 @@ const App: React.FC = () => {
                   type: 'SET_GOOGLE_USER',
                   payload: { email: user.email, token: user.accessToken }
                 });
+                // Force re-render to show language selector
                 dispatch({ type: 'SET_STATUS', payload: AppStatus.LANGUAGE_SELECT });
               } catch (error) {
                 console.warn('[Onboarding] OAuth failed, using demo mode:', error);
-                // Demo mode - proceed without actual credentials
                 localStorage.setItem('cloudConnected', 'demo');
                 dispatch({ type: 'SET_STATUS', payload: AppStatus.LANGUAGE_SELECT });
+              } finally {
+                dispatch({ type: 'SET_IS_CONNECTING', payload: false });
               }
             }}
-          />
-        );
-
-      case AppStatus.LANGUAGE_SELECT:
-        return (
-          <LanguageSelection
-            onSelect={(langCode) => {
-              // Store language selection
+            onSelectLanguage={(langCode) => {
               localStorage.setItem('menuLanguage', langCode);
-              // Move to upload screen
+              // Force re-render to show upload button
               dispatch({ type: 'SET_STATUS', payload: AppStatus.UPLOAD });
             }}
           />
         );
-
-      case AppStatus.UPLOAD:
-        return <FileUploadView onFileSelect={handleFileSelect} onUriSelect={handleUriSelect} onOpenSettings={handleProjectSettings} />;
+      }
 
 
       case AppStatus.UPLOADING:

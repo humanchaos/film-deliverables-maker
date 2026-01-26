@@ -1,19 +1,45 @@
 import React, { useRef, useState, DragEvent } from 'react';
 import { useTranslation } from 'react-i18next';
-// Removed cached uploads feature - Gemini URIs expire and cause issues
-import { ArrowRight, Settings } from 'lucide-react';
+import { ArrowRight, Settings, Cloud, Loader2, ChevronDown } from 'lucide-react';
+
+// Language options for inline selector
+const LANGUAGES = [
+  { code: 'de', name: 'Deutsch', flag: '🇩🇪' },
+  { code: 'en', name: 'English', flag: '🇬🇧' },
+  { code: 'fr', name: 'Français', flag: '🇫🇷' },
+  { code: 'it', name: 'Italiano', flag: '🇮🇹' },
+  { code: 'es', name: 'Español', flag: '🇪🇸' },
+  { code: 'pt', name: 'Português', flag: '🇵🇹' },
+  { code: 'ja', name: '日本語', flag: '🇯🇵' },
+  { code: 'zh', name: '中文', flag: '🇨🇳' },
+];
 
 interface FileUploadViewProps {
   onFileSelect: (file: File) => void;
   onUriSelect?: (uri: string) => void;
   onOpenSettings?: () => void;
+  // New props for unified landing
+  isConnected?: boolean;
+  hasLanguage?: boolean;
+  isConnecting?: boolean;
+  onConnect?: () => void;
+  onSelectLanguage?: (langCode: string) => void;
 }
 
-const FileUploadView: React.FC<FileUploadViewProps> = ({ onFileSelect, onUriSelect, onOpenSettings }) => {
-  const { t } = useTranslation();
+const FileUploadView: React.FC<FileUploadViewProps> = ({
+  onFileSelect,
+  onUriSelect,
+  onOpenSettings,
+  isConnected = true,  // Default to true for backwards compatibility
+  hasLanguage = true,  // Default to true for backwards compatibility
+  isConnecting = false,
+  onConnect,
+  onSelectLanguage,
+}) => {
+  const { t, i18n } = useTranslation();
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [isDragging, setIsDragging] = useState(false);
-  // Removed recentUploads state - cached uploads feature removed
+  const [showLanguageDropdown, setShowLanguageDropdown] = useState(false);
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -50,6 +76,83 @@ const FileUploadView: React.FC<FileUploadViewProps> = ({ onFileSelect, onUriSele
     }
   };
 
+  const handleLanguageSelect = (langCode: string) => {
+    setShowLanguageDropdown(false);
+    // Change i18n language
+    i18n.changeLanguage(langCode);
+    localStorage.setItem('menuLanguage', langCode);
+    // Notify parent
+    onSelectLanguage?.(langCode);
+  };
+
+  // Render the appropriate action button based on state
+  const renderActionButton = () => {
+    // State 1: Not connected - show cloud connect button
+    if (!isConnected) {
+      return (
+        <button
+          onClick={onConnect}
+          disabled={isConnecting}
+          className="group bg-[#ccff00] hover:bg-[#bbe600] text-black font-mono text-sm tracking-widest px-8 py-4 uppercase transition-all duration-300 transform hover:scale-105 flex items-center gap-3 mx-auto disabled:opacity-60 disabled:cursor-not-allowed"
+        >
+          {isConnecting ? (
+            <>
+              <Loader2 className="w-5 h-5 animate-spin" />
+              {t('landing.connecting', 'VERBINDE...')}
+            </>
+          ) : (
+            <>
+              <Cloud className="w-5 h-5" />
+              {t('landing.connectCloud', 'CLOUD VERBINDEN')}
+              <ArrowRight className="w-4 h-4 group-hover:translate-x-1 transition-transform" />
+            </>
+          )}
+        </button>
+      );
+    }
+
+    // State 2: Connected but no language - show language selector
+    if (!hasLanguage) {
+      return (
+        <div className="relative inline-block">
+          <button
+            onClick={() => setShowLanguageDropdown(!showLanguageDropdown)}
+            className="group bg-[#ccff00] hover:bg-[#bbe600] text-black font-mono text-sm tracking-widest px-8 py-4 uppercase transition-all duration-300 transform hover:scale-105 flex items-center gap-3 mx-auto"
+          >
+            {t('language.selectLanguage', 'SPRACHE WÄHLEN')}
+            <ChevronDown className={`w-5 h-5 transition-transform ${showLanguageDropdown ? 'rotate-180' : ''}`} />
+          </button>
+
+          {showLanguageDropdown && (
+            <div className="absolute top-full left-0 right-0 mt-2 bg-zinc-900 border border-zinc-700 rounded-lg shadow-2xl overflow-hidden z-50">
+              {LANGUAGES.map((lang) => (
+                <button
+                  key={lang.code}
+                  onClick={() => handleLanguageSelect(lang.code)}
+                  className="w-full px-6 py-3 flex items-center gap-3 hover:bg-[#ccff00] hover:text-black transition-colors text-left text-white"
+                >
+                  <span className="text-xl">{lang.flag}</span>
+                  <span className="font-mono text-sm">{lang.name}</span>
+                </button>
+              ))}
+            </div>
+          )}
+        </div>
+      );
+    }
+
+    // State 3: Connected and language selected - show upload button
+    return (
+      <button
+        onClick={() => fileInputRef.current?.click()}
+        className="group bg-[#ccff00] hover:bg-[#bbe600] text-black font-mono text-sm tracking-widest px-8 py-4 uppercase transition-all duration-300 transform hover:scale-105 flex items-center gap-2 mx-auto"
+      >
+        {t('fileUpload.startUploading', 'UPLOAD STARTEN')}
+        <ArrowRight className="w-4 h-4 group-hover:translate-x-1 transition-transform" />
+      </button>
+    );
+  };
+
   return (
     <div
       className={`min-h-[80vh] flex flex-col items-center justify-center relative transition-colors duration-300 ${isDragging ? 'bg-zinc-900' : 'bg-transparent'}`}
@@ -76,23 +179,17 @@ const FileUploadView: React.FC<FileUploadViewProps> = ({ onFileSelect, onUriSele
         </h1>
 
         <div className="flex flex-col space-y-1 py-8">
-          <p className="font-mono text-zinc-500 text-xl tracking-wider">{t('fileUpload.tagline1', 'Frame-accurate.')}</p>
-          <p className="font-mono text-zinc-500 text-xl tracking-wider">{t('fileUpload.tagline2', 'Fully automatic.')}</p>
-          <p className="font-mono text-zinc-500 text-xl tracking-wider">{t('fileUpload.tagline3', 'Industry Standard')}</p>
+          <p className="font-mono text-zinc-500 text-xl tracking-wider">{t('fileUpload.tagline1', 'Bildgenau.')}</p>
+          <p className="font-mono text-zinc-500 text-xl tracking-wider">{t('fileUpload.tagline2', 'Vollautomatisch.')}</p>
+          <p className="font-mono text-zinc-500 text-xl tracking-wider">{t('fileUpload.tagline3', 'Branchenstandard')}</p>
           <p className="font-mono text-zinc-500 text-xl tracking-wider">{t('fileUpload.tagline4', 'Deliverables.')}</p>
         </div>
 
         <p className="font-serif italic text-white text-4xl pt-8 pb-12 opacity-90">
-          {t('fileUpload.goTakeBreak', 'Go take a break.')}
+          {t('fileUpload.goTakeBreak', 'Mach mal Pause.')}
         </p>
 
-        <button
-          onClick={() => fileInputRef.current?.click()}
-          className="group bg-[#ccff00] hover:bg-[#bbe600] text-black font-mono text-sm tracking-widest px-8 py-4 uppercase transition-all duration-300 transform hover:scale-105 flex items-center gap-2 mx-auto"
-        >
-          {t('fileUpload.startUploading', 'Start Uploading')}
-          <ArrowRight className="w-4 h-4 group-hover:translate-x-1 transition-transform" />
-        </button>
+        {renderActionButton()}
       </div>
 
       <input
@@ -104,16 +201,15 @@ const FileUploadView: React.FC<FileUploadViewProps> = ({ onFileSelect, onUriSele
       />
 
       {/* Drag Overlay Indicator */}
-      {isDragging && (
+      {isDragging && isConnected && hasLanguage && (
         <div className="absolute inset-0 border-4 border-[#ccff00] bg-black/50 backdrop-blur-sm flex items-center justify-center pointer-events-none z-50">
           <p className="text-[#ccff00] font-mono text-2xl animate-pulse">{t('fileUpload.dropHere', 'DROP VIDEO FILE HERE')}</p>
         </div>
       )}
-
-      {/* Recent Uploads Library REMOVED - Gemini URIs expire and cause issues */}
     </div>
   );
 };
 
 export default FileUploadView;
+
 
