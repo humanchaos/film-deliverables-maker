@@ -157,6 +157,18 @@
         "lowerThirds": "Lower Thirds",
         "totalItems": "Total Items"
     },
+    "bio": {
+        "generated": "Biographies Generated!",
+        "successful": "successful",
+        "failed": "failed",
+        "allCompleted": "All completed",
+        "verifiedSources": "Verified Sources"
+    },
+    "templateConverter": {
+        "conversionComplete": "Conversion Complete",
+        "newConversion": "New Conversion",
+        "downloadMarkdown": "Download Markdown"
+    },
     "speakers": {
         "title": "Manage Speakers",
         "hint": "Rename a speaker to apply the change to all segments.",

@@ -1,4 +1,5 @@
 import React, { useCallback, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { Bio, ProjectMetadata } from '../types';
 import { downloadFile } from '../utils/tableUtils';
 import { exportToWord } from '../services/documentExportService';
@@ -15,6 +16,7 @@ interface BioResultViewProps {
 }
 
 const BioResultView: React.FC<BioResultViewProps> = ({ bios, videoFileName, projectMetadata, onReset, onBack, onSave }) => {
+  const { t } = useTranslation();
   const [isSaved, setIsSaved] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
 
@@ -66,9 +68,9 @@ const BioResultView: React.FC<BioResultViewProps> = ({ bios, videoFileName, proj
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
           </svg>
         </div>
-        <h3 className="text-2xl font-bold text-gray-200">Biographies Generated!</h3>
+        <h3 className="text-2xl font-bold text-gray-200">{t('bio.generated', 'Biographies Generated!')}</h3>
         <p className="text-gray-400 mt-2">
-          {successCount} successful • {failureCount > 0 ? `${failureCount} failed` : 'All completed'}
+          {successCount} {t('bio.successful', 'successful')} • {failureCount > 0 ? `${failureCount} ${t('bio.failed', 'failed')}` : t('bio.allCompleted', 'All completed')}
         </p>
       </div>
 
@@ -107,7 +109,7 @@ const BioResultView: React.FC<BioResultViewProps> = ({ bios, videoFileName, proj
 
                 {bio.sources && bio.sources.length > 0 && (
                   <div className="mt-4 pt-4 border-t border-gray-700/50">
-                    <p className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-2">Verified Sources</p>
+                    <p className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-2">{t('bio.verifiedSources', 'Verified Sources')}</p>
                     <div className="flex flex-wrap gap-2">
                       {bio.sources.map((source, i) => (
                         <a
@@ -136,21 +138,21 @@ const BioResultView: React.FC<BioResultViewProps> = ({ bios, videoFileName, proj
           className="px-6 py-3 bg-indigo-600 hover:bg-indigo-700 text-white font-semibold rounded-lg transition-all duration-200 shadow-lg transform hover:scale-105 flex items-center justify-center gap-2"
         >
           <Download size={20} />
-          Download TXT
+          {t('actions.downloadTXT', 'Download TXT')}
         </button>
         <button
           onClick={handleExportWord}
           className="px-6 py-3 bg-blue-600 hover:bg-blue-700 text-white font-semibold rounded-lg transition-all duration-200 shadow-lg transform hover:scale-105 flex items-center justify-center gap-2"
         >
           <Download size={20} />
-          Export Word
+          {t('actions.exportWord', 'Export Word')}
         </button>
         <button
           onClick={handleExportJSON}
           className="px-6 py-3 bg-yellow-600 hover:bg-yellow-700 text-white font-semibold rounded-lg transition-all duration-200 shadow-lg transform hover:scale-105 flex items-center justify-center gap-2"
         >
           <Database size={20} />
-          Export JSON
+          {t('actions.exportJSON', 'Export JSON')}
         </button>
         <button
           onClick={handleSaveToDatabase}
@@ -164,10 +166,10 @@ const BioResultView: React.FC<BioResultViewProps> = ({ bios, videoFileName, proj
           )}
         </button>
         <button onClick={onBack} className="px-6 py-3 bg-gray-700 hover:bg-gray-600 text-white font-semibold rounded-lg">
-          Back to Dashboard
+          {t('nav.backToDashboard', 'Back to Dashboard')}
         </button>
         <button onClick={onReset} className="px-6 py-3 bg-red-800 hover:bg-red-700 text-white font-semibold rounded-lg">
-          New Video
+          {t('actions.newVideo', 'New Video')}
         </button>
       </div>
     </div>

@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { FullAnalysisResult, VideoMetadata, ProjectMetadata, DEFAULT_FAUNA_CONFIG } from '../types';
 import ShotListResultView from './ShotListResultView';
 import TranscriptionResultView from './TranscriptionResultView';
@@ -35,16 +36,17 @@ const FullAnalysisResultView: React.FC<FullAnalysisResultViewProps> = ({
 }) => {
     if (!result) return null;
 
+    const { t } = useTranslation();
     const [activeTab, setActiveTab] = useState<'synopsis' | 'bio' | 'shots' | 'transcription' | 'graphics' | 'fauna'>('synopsis');
     const [showExportModal, setShowExportModal] = useState(false);
 
     const tabs = [
-        { id: 'synopsis', label: 'Synopsis', icon: <BookOpen size={20} /> },
-        { id: 'transcription', label: 'Transcription', icon: <MessageSquare size={20} /> },
-        { id: 'shots', label: 'Shot List', icon: <Clapperboard size={20} /> },
-        { id: 'bio', label: 'Bio', icon: <Users size={20} /> },
-        { id: 'graphics', label: 'Graphics', icon: <Image size={20} /> },
-        { id: 'fauna', label: 'Fauna', icon: <Bug size={20} /> },
+        { id: 'synopsis', label: t('modules.synopsis', 'Synopsis'), icon: <BookOpen size={20} /> },
+        { id: 'transcription', label: t('modules.transcription', 'Transcription'), icon: <MessageSquare size={20} /> },
+        { id: 'shots', label: t('modules.shotList', 'Shot List'), icon: <Clapperboard size={20} /> },
+        { id: 'bio', label: t('modules.bio', 'Bio'), icon: <Users size={20} /> },
+        { id: 'graphics', label: t('modules.graphics', 'Graphics'), icon: <Image size={20} /> },
+        { id: 'fauna', label: t('modules.fauna', 'Fauna'), icon: <Bug size={20} /> },
     ];
 
     return (
@@ -58,13 +60,13 @@ const FullAnalysisResultView: React.FC<FullAnalysisResultViewProps> = ({
                     <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 19l-7-7m0 0l7-7m-7 7h18" />
                     </svg>
-                    Back to Modules
+                    {t('modeSelect.backToModules', 'Back to Modules')}
                 </button>
                 <button
                     onClick={onReset}
                     className="px-4 py-2 border border-gray-600 hover:bg-gray-700 text-gray-300 rounded-lg transition-colors"
                 >
-                    New Upload
+                    {t('modeSelect.newUpload', 'New Upload')}
                 </button>
             </div>
 
@@ -96,7 +98,7 @@ const FullAnalysisResultView: React.FC<FullAnalysisResultViewProps> = ({
                         className="flex items-center gap-2 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded text-sm font-medium transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                     >
                         <FileText size={16} />
-                        Export Options...
+                        {t('export.options', 'Export Options...')}
                     </button>
 
                     <ExportModal

@@ -157,6 +157,18 @@
         "lowerThirds": "Bauchbinden",
         "totalItems": "Gesamt"
     },
+    "bio": {
+        "generated": "Biografien generiert!",
+        "successful": "erfolgreich",
+        "failed": "fehlgeschlagen",
+        "allCompleted": "Alle abgeschlossen",
+        "verifiedSources": "Verifizierte Quellen"
+    },
+    "templateConverter": {
+        "conversionComplete": "Konvertierung abgeschlossen",
+        "newConversion": "Neue Konvertierung",
+        "downloadMarkdown": "Markdown herunterladen"
+    },
     "speakers": {
         "title": "Sprecher verwalten",
         "hint": "Benennen Sie einen Sprecher um, um die Änderung auf alle Segmente anzuwenden.",
