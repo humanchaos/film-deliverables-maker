@@ -8,120 +8,135 @@ import { Users, Check, X } from 'lucide-react';
 import { TranscriptionSegment } from '../types';
 
 interface SpeakerManagerProps {
-    segments: TranscriptionSegment[];
-    onUpdate: (segments: TranscriptionSegment[]) => void;
+  segments: TranscriptionSegment[];
+  onUpdate: (segments: TranscriptionSegment[]) => void;
 }
 
 export function SpeakerManager({ segments, onUpdate }: SpeakerManagerProps) {
-    const { t } = useTranslation();
-    const [renames, setRenames] = useState<Record<string, string>>({});
-    const [editingSpeaker, setEditingSpeaker] = useState<string | null>(null);
+  const { t } = useTranslation();
+  const [renames, setRenames] = useState<Record<string, string>>({});
+  const [editingSpeaker, setEditingSpeaker] = useState<string | null>(null);
 
-    // Get unique speakers with segment counts
-    const speakers = useMemo(() => {
-        const counts: Record<string, number> = {};
-        segments.forEach((s) => {
-            const speaker = s.speaker || 'Unknown';
-            counts[speaker] = (counts[speaker] || 0) + 1;
-        });
-        return Object.entries(counts)
-            .map(([name, count]) => ({ name, count }))
-            .sort((a, b) => b.count - a.count);
-    }, [segments]);
+  // Get unique speakers with segment counts
+  const speakers = useMemo(() => {
+    const counts: Record<string, number> = {};
+    segments.forEach((s) => {
+      const speaker = s.speaker || 'Unknown';
+      counts[speaker] = (counts[speaker] || 0) + 1;
+    });
+    return Object.entries(counts)
+      .map(([name, count]) => ({ name, count }))
+      .sort((a, b) => b.count - a.count);
+  }, [segments]);
 
-    const handleRenameChange = (oldName: string, newName: string) => {
-        setRenames((prev) => ({ ...prev, [oldName]: newName }));
-    };
+  // Track original names for each editing session
+  const [originalNames, setOriginalNames] = useState<Record<string, string>>({});
 
-    const applyRename = (oldName: string) => {
-        const newName = renames[oldName]?.trim();
-        if (!newName || newName === oldName) {
-            setEditingSpeaker(null);
-            setRenames((prev) => ({ ...prev, [oldName]: '' }));
-            return;
-        }
+  const handleRenameChange = (oldName: string, newName: string) => {
+    // Store original name on first edit if not already stored
+    if (!originalNames[oldName]) {
+      setOriginalNames(prev => ({ ...prev, [oldName]: oldName }));
+    }
+    setRenames((prev) => ({ ...prev, [oldName]: newName }));
 
-        // Apply to ALL segments with this speaker
-        const updated = segments.map((seg) =>
-            seg.speaker === oldName ? { ...seg, speaker: newName } : seg
-        );
-        onUpdate(updated);
+    // Real-time update: immediately apply to all segments
+    const originalName = originalNames[oldName] || oldName;
+    const updated = segments.map((seg) =>
+      seg.speaker === originalName || seg.speaker === oldName
+        ? { ...seg, speaker: newName || originalName }
+        : seg
+    );
+    onUpdate(updated);
+  };
 
-        // Clear the input
-        setRenames((prev) => ({ ...prev, [oldName]: '' }));
-        setEditingSpeaker(null);
-    };
+  const applyRename = (oldName: string) => {
+    // Clear editing state - changes are already applied in real-time
+    setRenames((prev) => ({ ...prev, [oldName]: '' }));
+    setOriginalNames((prev) => ({ ...prev, [oldName]: '' }));
+    setEditingSpeaker(null);
+  };
 
-    const cancelRename = (oldName: string) => {
-        setRenames((prev) => ({ ...prev, [oldName]: '' }));
-        setEditingSpeaker(null);
-    };
+  const cancelRename = (oldName: string) => {
+    // Revert to original name
+    const originalName = originalNames[oldName];
+    if (originalName && originalName !== oldName) {
+      const updated = segments.map((seg) =>
+        seg.speaker === oldName || seg.speaker === renames[oldName]
+          ? { ...seg, speaker: originalName }
+          : seg
+      );
+      onUpdate(updated);
+    }
+    setRenames((prev) => ({ ...prev, [oldName]: '' }));
+    setOriginalNames((prev) => ({ ...prev, [oldName]: '' }));
+    setEditingSpeaker(null);
+  };
 
-    return (
-        <div className="speaker-manager">
-            <div className="speaker-header">
-                <Users className="speaker-icon" />
-                <h3>{t('speakers.title')}</h3>
+  return (
+    <div className="speaker-manager">
+      <div className="speaker-header">
+        <Users className="speaker-icon" />
+        <h3>{t('speakers.title')}</h3>
+      </div>
+      <p className="speaker-hint">{t('speakers.hint')}</p>
+
+      <div className="speaker-table">
+        <div className="speaker-table-header">
+          <span>Speaker</span>
+          <span>{t('speakers.segments')}</span>
+          <span>{t('speakers.rename')}</span>
+        </div>
+
+        {speakers.map(({ name, count }) => (
+          <div key={name} className="speaker-row">
+            <div className="speaker-name">
+              <strong>{name}</strong>
             </div>
-            <p className="speaker-hint">{t('speakers.hint')}</p>
-
-            <div className="speaker-table">
-                <div className="speaker-table-header">
-                    <span>Speaker</span>
-                    <span>{t('speakers.segments')}</span>
-                    <span>{t('speakers.rename')}</span>
+            <div className="speaker-count">{count}</div>
+            <div className="speaker-rename">
+              {editingSpeaker === name ? (
+                <div className="rename-input-group">
+                  <input
+                    type="text"
+                    placeholder={t('speakers.newName')}
+                    value={renames[name] || ''}
+                    onChange={(e) => handleRenameChange(name, e.target.value)}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter') applyRename(name);
+                      if (e.key === 'Escape') cancelRename(name);
+                    }}
+                    autoFocus
+                  />
+                  <button
+                    className="rename-action apply"
+                    onClick={() => applyRename(name)}
+                    disabled={!renames[name]?.trim()}
+                    title={t('speakers.applyToAll')}
+                  >
+                    <Check />
+                  </button>
+                  <button
+                    className="rename-action cancel"
+                    onClick={() => cancelRename(name)}
+                    title={t('common.cancel')}
+                  >
+                    <X />
+                  </button>
                 </div>
-
-                {speakers.map(({ name, count }) => (
-                    <div key={name} className="speaker-row">
-                        <div className="speaker-name">
-                            <strong>{name}</strong>
-                        </div>
-                        <div className="speaker-count">{count}</div>
-                        <div className="speaker-rename">
-                            {editingSpeaker === name ? (
-                                <div className="rename-input-group">
-                                    <input
-                                        type="text"
-                                        placeholder={t('speakers.newName')}
-                                        value={renames[name] || ''}
-                                        onChange={(e) => handleRenameChange(name, e.target.value)}
-                                        onKeyDown={(e) => {
-                                            if (e.key === 'Enter') applyRename(name);
-                                            if (e.key === 'Escape') cancelRename(name);
-                                        }}
-                                        autoFocus
-                                    />
-                                    <button
-                                        className="rename-action apply"
-                                        onClick={() => applyRename(name)}
-                                        disabled={!renames[name]?.trim()}
-                                        title={t('speakers.applyToAll')}
-                                    >
-                                        <Check />
-                                    </button>
-                                    <button
-                                        className="rename-action cancel"
-                                        onClick={() => cancelRename(name)}
-                                        title={t('common.cancel')}
-                                    >
-                                        <X />
-                                    </button>
-                                </div>
-                            ) : (
-                                <button
-                                    className="rename-btn"
-                                    onClick={() => setEditingSpeaker(name)}
-                                >
-                                    {t('speakers.rename')}
-                                </button>
-                            )}
-                        </div>
-                    </div>
-                ))}
+              ) : (
+                <button
+                  className="rename-btn"
+                  onClick={() => setEditingSpeaker(name)}
+                >
+                  {t('speakers.rename')}
+                </button>
+              )}
             </div>
+          </div>
+        ))}
+      </div>
 
-            <style>{`
+      <style>{`
         .speaker-manager {
           background: rgba(30, 41, 59, 0.5);
           border: 1px solid rgba(148, 163, 184, 0.1);
@@ -278,8 +293,8 @@ export function SpeakerManager({ segments, onUpdate }: SpeakerManagerProps) {
           background: rgba(239, 68, 68, 0.3);
         }
       `}</style>
-        </div>
-    );
+    </div>
+  );
 }
 
 export default SpeakerManager;
