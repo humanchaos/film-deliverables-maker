@@ -36,10 +36,8 @@ const ProjectMetadataView: React.FC<ProjectMetadataViewProps> = ({
     const [useProMode, setUseProMode] = useState(currentUseProMode || false);
     const [isAuthenticating, setIsAuthenticating] = useState(false);
     const [showTemplateManager, setShowTemplateManager] = useState(false);
-    // Output language: null = auto-detect from video
-    const [outputLanguage, setOutputLanguage] = useState<string | null>(() => {
-        return localStorage.getItem('outputLanguage');
-    });
+    // For custom language input when "custom" is selected
+    const [showCustomLanguage, setShowCustomLanguage] = useState(false);
 
     const handleChange = (field: keyof ProjectMetadata, value: string) => {
         setMetadata(prev => ({ ...prev, [field]: value }));
@@ -47,6 +45,12 @@ const ProjectMetadataView: React.FC<ProjectMetadataViewProps> = ({
 
     const handleSubmit = (e: React.FormEvent) => {
         e.preventDefault();
+        // Sync outputLanguage to localStorage for API access (per-project, but API reads from localStorage)
+        if (metadata.outputLanguage) {
+            localStorage.setItem('outputLanguage', metadata.outputLanguage);
+        } else {
+            localStorage.removeItem('outputLanguage');
+        }
         onSave(metadata, gcsToken, gcsProjectId, useProMode);
     };
 
@@ -147,14 +151,17 @@ const ProjectMetadataView: React.FC<ProjectMetadataViewProps> = ({
                     <div className="space-y-2">
                         <label className="text-sm font-medium text-gray-300">Output Language</label>
                         <select
-                            value={outputLanguage || ''}
+                            value={['en', 'de', 'fr', 'es', 'ja', 'zh', ''].includes(metadata.outputLanguage || '')
+                                ? (metadata.outputLanguage || '')
+                                : 'custom'
+                            }
                             onChange={e => {
-                                const value = e.target.value || null;
-                                setOutputLanguage(value);
-                                if (value) {
-                                    localStorage.setItem('outputLanguage', value);
+                                const value = e.target.value;
+                                if (value === 'custom') {
+                                    setShowCustomLanguage(true);
                                 } else {
-                                    localStorage.removeItem('outputLanguage');
+                                    setShowCustomLanguage(false);
+                                    handleChange('outputLanguage', value);
                                 }
                             }}
                             className="w-full px-4 py-2 bg-gray-800 border border-gray-700 rounded-lg focus:ring-2 focus:ring-blue-500 text-white"
@@ -166,13 +173,18 @@ const ProjectMetadataView: React.FC<ProjectMetadataViewProps> = ({
                             <option value="es">🇪🇸 Spanish</option>
                             <option value="ja">🇯🇵 Japanese</option>
                             <option value="zh">🇨🇳 Mandarin Chinese</option>
-                            <option value="ko">🇰🇷 Korean</option>
-                            <option value="ru">🇷🇺 Russian</option>
-                            <option value="pt">🇵🇹 Portuguese</option>
-                            <option value="it">🇮🇹 Italian</option>
-                            <option value="ar">🇸🇦 Arabic</option>
+                            <option value="custom">✏️ Custom language...</option>
                         </select>
-                        <p className="text-xs text-gray-500">Language for analysis results & exports (independent of UI)</p>
+                        {(showCustomLanguage || !['en', 'de', 'fr', 'es', 'ja', 'zh', '', undefined].includes(metadata.outputLanguage)) && (
+                            <input
+                                type="text"
+                                value={metadata.outputLanguage || ''}
+                                onChange={e => handleChange('outputLanguage', e.target.value)}
+                                placeholder="e.g. Korean, Portuguese, Arabic..."
+                                className="w-full mt-2 px-4 py-2 bg-gray-800 border border-gray-700 rounded-lg focus:ring-2 focus:ring-blue-500 text-white placeholder-gray-500"
+                            />
+                        )}
+                        <p className="text-xs text-gray-500">Language for analysis results & exports (per-project setting)</p>
                     </div>
                     <div className="space-y-2">
                         <label className="text-sm font-medium text-gray-300">Custom Script Templates</label>

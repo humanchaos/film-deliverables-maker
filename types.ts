@@ -295,6 +295,7 @@ export interface ProjectMetadata {
   date: string; // ISO date string or custom string
   exportTemplate?: ExportTemplate; // New: Selected export style
   timecodeStart: string; // New: Offset (e.g., 01:00:00:00)
+  outputLanguage?: string; // Per-project output language (null = auto-detect from video)
 }
 
 export const DEFAULT_PROJECT_METADATA: ProjectMetadata = {
@@ -307,6 +308,7 @@ export const DEFAULT_PROJECT_METADATA: ProjectMetadata = {
   editor: '',
   date: new Date().toISOString().split('T')[0],
   timecodeStart: '00:00:00:00',
+  outputLanguage: undefined, // Auto-detect by default
 };
 
 // ═══════════════════════════════════════════════════════════════════════════════
