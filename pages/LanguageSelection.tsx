@@ -13,19 +13,13 @@ interface Language {
   nativeName: string;
 }
 
+// Only languages with full i18n UI translations
 const LANGUAGES: Language[] = [
   { code: 'de', name: 'German', flag: '🇩🇪', nativeName: 'Deutsch' },
   { code: 'en', name: 'English', flag: '🇬🇧', nativeName: 'English' },
   { code: 'fr', name: 'French', flag: '🇫🇷', nativeName: 'Français' },
-  { code: 'it', name: 'Italian', flag: '🇮🇹', nativeName: 'Italiano' },
   { code: 'es', name: 'Spanish', flag: '🇪🇸', nativeName: 'Español' },
-  { code: 'pt', name: 'Portuguese', flag: '🇵🇹', nativeName: 'Português' },
-  { code: 'nl', name: 'Dutch', flag: '🇳🇱', nativeName: 'Nederlands' },
-  { code: 'pl', name: 'Polish', flag: '🇵🇱', nativeName: 'Polski' },
   { code: 'ja', name: 'Japanese', flag: '🇯🇵', nativeName: '日本語' },
-  { code: 'zh', name: 'Chinese', flag: '🇨🇳', nativeName: '中文' },
-  { code: 'ko', name: 'Korean', flag: '🇰🇷', nativeName: '한국어' },
-  { code: 'ru', name: 'Russian', flag: '🇷🇺', nativeName: 'Русский' },
 ];
 
 interface LanguageSelectionProps {

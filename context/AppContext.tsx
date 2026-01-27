@@ -31,6 +31,7 @@ const STORAGE_KEYS = {
     GCS_TOKEN: 'gcsAccessToken',
     GCS_EMAIL: 'gcsUserEmail',
     MENU_LANGUAGE: 'menuLanguage',
+    OUTPUT_LANGUAGE: 'outputLanguage',
 };
 
 export function AppProvider({ children }: { children: ReactNode }) {
@@ -56,7 +57,10 @@ export function AppProvider({ children }: { children: ReactNode }) {
         return localStorage.getItem(STORAGE_KEYS.MENU_LANGUAGE);
     });
 
-    const [outputLanguage, setOutputLanguage] = useState<string | null>(null);
+    // Output language: null means "auto-detect from video"
+    const [outputLanguage, setOutputLanguageState] = useState<string | null>(() => {
+        return localStorage.getItem(STORAGE_KEYS.OUTPUT_LANGUAGE);
+    });
 
     // Set cloud connection
     const setCloudConnection = (type: 'gcs' | 'drive', token: string, email: string) => {
@@ -89,6 +93,16 @@ export function AppProvider({ children }: { children: ReactNode }) {
         setMenuLanguageState(lang);
         localStorage.setItem(STORAGE_KEYS.MENU_LANGUAGE, lang);
         changeLanguage(lang);
+    };
+
+    // Set output language (null = auto-detect from video)
+    const setOutputLanguage = (lang: string | null) => {
+        setOutputLanguageState(lang);
+        if (lang) {
+            localStorage.setItem(STORAGE_KEYS.OUTPUT_LANGUAGE, lang);
+        } else {
+            localStorage.removeItem(STORAGE_KEYS.OUTPUT_LANGUAGE);
+        }
     };
 
     return (

@@ -36,6 +36,10 @@ const ProjectMetadataView: React.FC<ProjectMetadataViewProps> = ({
     const [useProMode, setUseProMode] = useState(currentUseProMode || false);
     const [isAuthenticating, setIsAuthenticating] = useState(false);
     const [showTemplateManager, setShowTemplateManager] = useState(false);
+    // Output language: null = auto-detect from video
+    const [outputLanguage, setOutputLanguage] = useState<string | null>(() => {
+        return localStorage.getItem('outputLanguage');
+    });
 
     const handleChange = (field: keyof ProjectMetadata, value: string) => {
         setMetadata(prev => ({ ...prev, [field]: value }));
@@ -139,6 +143,36 @@ const ProjectMetadataView: React.FC<ProjectMetadataViewProps> = ({
                             <option value="ORF">ORF (Austrian)</option>
                             <option value="Custom">Custom Branding</option>
                         </select>
+                    </div>
+                    <div className="space-y-2">
+                        <label className="text-sm font-medium text-gray-300">Output Language</label>
+                        <select
+                            value={outputLanguage || ''}
+                            onChange={e => {
+                                const value = e.target.value || null;
+                                setOutputLanguage(value);
+                                if (value) {
+                                    localStorage.setItem('outputLanguage', value);
+                                } else {
+                                    localStorage.removeItem('outputLanguage');
+                                }
+                            }}
+                            className="w-full px-4 py-2 bg-gray-800 border border-gray-700 rounded-lg focus:ring-2 focus:ring-blue-500 text-white"
+                        >
+                            <option value="">🔍 Auto-detect from video</option>
+                            <option value="en">🇬🇧 English</option>
+                            <option value="de">🇩🇪 German</option>
+                            <option value="fr">🇫🇷 French</option>
+                            <option value="es">🇪🇸 Spanish</option>
+                            <option value="ja">🇯🇵 Japanese</option>
+                            <option value="zh">🇨🇳 Mandarin Chinese</option>
+                            <option value="ko">🇰🇷 Korean</option>
+                            <option value="ru">🇷🇺 Russian</option>
+                            <option value="pt">🇵🇹 Portuguese</option>
+                            <option value="it">🇮🇹 Italian</option>
+                            <option value="ar">🇸🇦 Arabic</option>
+                        </select>
+                        <p className="text-xs text-gray-500">Language for analysis results & exports (independent of UI)</p>
                     </div>
                     <div className="space-y-2">
                         <label className="text-sm font-medium text-gray-300">Custom Script Templates</label>
