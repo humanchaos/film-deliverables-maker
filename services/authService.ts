@@ -183,9 +183,13 @@ class AuthService {
         this.accessToken = null;
         this.userEmail = null;
         this.tokenExpiration = 0;
+        // Clear all auth-related localStorage keys to prevent UI state mismatch
         localStorage.removeItem('gcs_access_token');
         localStorage.removeItem('gcs_token_expiration');
         localStorage.removeItem('gcs_user_email');
+        // Also clear the app-level connection flags
+        localStorage.removeItem('cloudConnected');
+        localStorage.removeItem('gcsAccessToken');  // Legacy key used in some places
     }
 
     public getAccessToken(): string | null {
