@@ -186,7 +186,22 @@ export async function uploadAndCreateJob(
     onProgress?.('Uploading video...', 5 + progress * 0.4); // 5-45%
   });
 
-  // 3. Create job
+  // 3. Get user's preferred language from localStorage
+  const menuLanguage = localStorage.getItem('menuLanguage');
+  // Map language codes to full language names for Gemini
+  const languageMap: Record<string, string> = {
+    'en': 'English',
+    'de': 'German',
+    'fr': 'French',
+    'es': 'Spanish',
+    'ja': 'Japanese',
+    'zh': 'Mandarin Chinese',
+    'cmn': 'Mandarin Chinese',
+  };
+  const preferredLanguage = menuLanguage ? (languageMap[menuLanguage] || menuLanguage) : undefined;
+  console.log(`[API] Using preferredLanguage: ${preferredLanguage || 'auto-detect'}`);
+
+  // 4. Create job
   onProgress?.('Starting analysis...', 50);
   console.log(`[API] Creating job with geminiFileUri: ${geminiFileUri ? 'provided' : 'not provided'}`);
   const { id } = await createJob({
@@ -195,6 +210,7 @@ export async function uploadAndCreateJob(
     duration,
     fileName: file.name,
     geminiFileUri, // Pass through to backend
+    preferredLanguage, // Pass user's language preference
     analysisConfig,
   });
 

@@ -213,6 +213,7 @@ export interface CreateJobRequest {
     fileName: string;
     analysisConfig?: Partial<AnalysisConfig>;
     geminiFileUri?: string; // If provided, worker skips re-upload to Gemini
+    preferredLanguage?: string; // User-selected output language (e.g., "Mandarin Chinese")
 }
 
 export interface CreateJobResponse {

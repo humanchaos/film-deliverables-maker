@@ -57,7 +57,7 @@ export async function getUploadUrl(req: Request, res: Response) {
  */
 export async function createJob(req: Request, res: Response) {
     try {
-        const { gcsUri, mimeType, duration, fileName, analysisConfig, geminiFileUri } = req.body as CreateJobRequest;
+        const { gcsUri, mimeType, duration, fileName, analysisConfig, geminiFileUri, preferredLanguage } = req.body as CreateJobRequest;
 
         // Validate required fields
         if (!gcsUri) {
@@ -71,6 +71,11 @@ export async function createJob(req: Request, res: Response) {
         // Log if geminiFileUri was provided (avoids re-upload in worker)
         if (geminiFileUri) {
             console.log(`[Jobs] geminiFileUri provided, worker will skip re-upload`);
+        }
+
+        // Log preferred language
+        if (preferredLanguage) {
+            console.log(`[Jobs] preferredLanguage: ${preferredLanguage}`);
         }
 
         // Merge config with defaults
@@ -107,6 +112,7 @@ export async function createJob(req: Request, res: Response) {
                 duration: duration || 0,
                 fileName: fileName || 'video.mp4',
                 analysisConfig: finalConfig,
+                preferredLanguage: preferredLanguage || undefined, // Pass user's language preference
             },
             progress: {
                 overall: 0,

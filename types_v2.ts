@@ -228,6 +228,7 @@ export interface CreateJobRequest {
   duration: number;
   fileName: string;
   geminiFileUri?: string; // Optional: If provided, backend skips re-upload
+  preferredLanguage?: string; // Optional: User-selected output language (e.g., "Mandarin", "German")
   analysisConfig?: Partial<AnalysisConfig>;
 }
 
