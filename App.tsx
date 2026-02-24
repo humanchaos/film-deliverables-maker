@@ -602,7 +602,6 @@ const App: React.FC = () => {
               const gcsUri = await uploadFileToGCS({
                 file: state.videoFile!,
                 bucketName: bucketName,
-                apiKey: import.meta.env.VITE_GEMINI_API_KEY,
                 accessToken: state.gcsAccessToken,
                 onProgress: (p) => {
                   // GCS upload is first 50%
@@ -904,7 +903,6 @@ const App: React.FC = () => {
           file: state.videoFile!,
           fileUri: state.geminiFileUri!,
           mode: 'synopsis',
-          apiKey: import.meta.env.VITE_GEMINI_API_KEY,
           bucketName: import.meta.env.VITE_GOOGLE_CLOUD_STORAGE_BUCKET || 'gemini-deliverables-app',
           onProgress: updateProgress,
           signal: controller.signal,
@@ -927,7 +925,6 @@ const App: React.FC = () => {
           file: state.videoFile!,
           fileUri: state.geminiFileUri!,
           mode: 'bio',
-          apiKey: import.meta.env.VITE_GEMINI_API_KEY,
           bucketName: import.meta.env.VITE_GOOGLE_CLOUD_STORAGE_BUCKET || 'gemini-deliverables-app',
           onProgress: updateProgress,
           signal: controller.signal,
@@ -949,7 +946,6 @@ const App: React.FC = () => {
         file: state.videoFile!,
         fileUri: state.geminiFileUri!,
         mode: 'graphics',
-        apiKey: import.meta.env.VITE_GEMINI_API_KEY,
         bucketName: import.meta.env.VITE_GOOGLE_CLOUD_STORAGE_BUCKET || 'gemini-deliverables-app',
         onProgress: updateProgress,
         signal: controller.signal,
@@ -973,7 +969,6 @@ const App: React.FC = () => {
         file: state.videoFile!,
         fileUri: state.geminiFileUri!,
         mode: 'fauna',
-        apiKey: import.meta.env.VITE_GEMINI_API_KEY,
         bucketName: import.meta.env.VITE_GOOGLE_CLOUD_STORAGE_BUCKET || 'gemini-deliverables-app',
         onProgress: updateProgress,
         signal: controller.signal,
@@ -995,7 +990,6 @@ const App: React.FC = () => {
         file: state.videoFile!,
         fileUri: state.geminiFileUri!,
         mode: 'transcribe',
-        apiKey: import.meta.env.VITE_GEMINI_API_KEY,
         bucketName: import.meta.env.VITE_GOOGLE_CLOUD_STORAGE_BUCKET || 'gemini-deliverables-app',
         onProgress: updateProgress,
         signal: controller.signal,
@@ -1025,7 +1019,6 @@ const App: React.FC = () => {
           file: state.videoFile!,
           fileUri: state.geminiFileUri!,
           mode: 'shotlist',
-          apiKey: import.meta.env.VITE_GEMINI_API_KEY,
           bucketName: import.meta.env.VITE_GOOGLE_CLOUD_STORAGE_BUCKET || 'gemini-deliverables-app',
           onProgress: updateProgress,
           signal: controller.signal,
@@ -1124,7 +1117,6 @@ const App: React.FC = () => {
         file: state.videoFile!,
         fileUri: state.geminiFileUri!,
         mode: 'full_analysis',
-        apiKey: import.meta.env.VITE_GEMINI_API_KEY,
         bucketName: import.meta.env.VITE_GOOGLE_CLOUD_STORAGE_BUCKET || 'gemini-deliverables-app',
         onProgress: updateProgress,
         onMultiProgress: (mode: AnalysisMode, message: string, percentage: number) => {

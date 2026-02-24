@@ -5,15 +5,6 @@ import { modelRouter } from './llm/ModelRouter';
 import { VideoFrameExtractor } from '../utils/videoFrameExtractor';
 import { retryWithBackoff } from '../utils/retryUtils';
 
-// Helper to convert Blob to Base64
-const blobToBase64 = (blob: Blob): Promise<string> => {
-    return new Promise((resolve, reject) => {
-        const reader = new FileReader();
-        reader.onloadend = () => resolve(reader.result as string);
-        reader.onerror = reject;
-        reader.readAsDataURL(blob);
-    });
-};
 
 // We need a way to call Gemini with a Blob image easily.
 // I'll add a helper inside IndexingService to call ModelRouter.generateText with multimedia parts?

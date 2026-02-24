@@ -22,6 +22,8 @@ import {
     getJob,
     deleteJob,
     workerProcess,
+    initGeminiUpload,
+    proxyGeminiFileStatus,
 } from './controllers/jobs.js';
 import {
     createTemplate,
@@ -79,8 +81,12 @@ app.use(express.json({ limit: '50mb' })); // Increased for large job payloads
 // PUBLIC API ROUTES
 // ═══════════════════════════════════════════════════════════════════════════
 
-// Upload URL generation
+// Upload URL generation (GCS signed URLs)
 app.post('/api/upload-url', getUploadUrl as any);
+
+// Gemini upload proxy (keeps API key server-side)
+app.post('/api/gemini-upload/init', initGeminiUpload as any);
+app.get('/api/gemini-upload/status', proxyGeminiFileStatus as any);
 
 // Job management
 app.post('/api/jobs', createJob as any);

@@ -291,3 +291,102 @@ export async function workerProcess(req: Request, res: Response) {
         res.status(500).json({ error: 'Processing failed' });
     }
 }
+
+// ═══════════════════════════════════════════════════════════════════════════
+// GEMINI UPLOAD PROXY
+// Keeps the API key server-side — browser never sees it
+// ═══════════════════════════════════════════════════════════════════════════
+
+const GEMINI_UPLOAD_BASE_URL = 'https://generativelanguage.googleapis.com/upload/v1beta/files';
+const GEMINI_FILES_BASE_URL = 'https://generativelanguage.googleapis.com/v1beta';
+
+/**
+ * POST /api/gemini-upload/init
+ * Initializes a Gemini resumable upload session server-side.
+ * Returns the upload URL (which does NOT contain the API key) to the browser.
+ * The browser can then upload chunks directly to that URL without needing the key.
+ */
+export async function initGeminiUpload(req: Request, res: Response) {
+    try {
+        const { fileName, mimeType, fileSize } = req.body;
+
+        if (!fileName || !mimeType) {
+            return res.status(400).json({ error: 'fileName and mimeType are required' });
+        }
+
+        const { config } = await import('../config/env.js');
+        const apiKey = config.geminiApiKey;
+
+        if (!apiKey) {
+            return res.status(500).json({ error: '[Upload Proxy] GEMINI_API_KEY not configured on server' });
+        }
+
+        const url = `${GEMINI_UPLOAD_BASE_URL}?key=${apiKey}`;
+
+        const response = await fetch(url, {
+            method: 'POST',
+            headers: {
+                'X-Goog-Upload-Protocol': 'resumable',
+                'X-Goog-Upload-Command': 'start',
+                'X-Goog-Upload-Header-Content-Length': String(fileSize || 0),
+                'X-Goog-Upload-Header-Content-Type': mimeType,
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({ file: { display_name: fileName } }),
+        });
+
+        if (!response.ok) {
+            const errorText = await response.text();
+            console.error('[Upload Proxy] Failed to init Gemini upload:', response.status, errorText);
+            return res.status(response.status).json({ error: `Gemini upload init failed: ${response.status}` });
+        }
+
+        const uploadUrl = response.headers.get('X-Goog-Upload-URL');
+        if (!uploadUrl) {
+            return res.status(500).json({ error: 'No upload URL returned from Gemini' });
+        }
+
+        // The upload URL itself does not contain the API key — safe to return to browser
+        console.log(`[Upload Proxy] Gemini upload session initialized for: ${fileName}`);
+        res.json({ uploadUrl });
+    } catch (error) {
+        console.error('[Upload Proxy] initGeminiUpload error:', error);
+        res.status(500).json({ error: 'Failed to initialize Gemini upload session' });
+    }
+}
+
+/**
+ * GET /api/gemini-upload/status?fileName=files/xxx
+ * Proxies the Gemini file processing status check.
+ * Browser polls this instead of calling Gemini directly with the API key.
+ */
+export async function proxyGeminiFileStatus(req: Request, res: Response) {
+    try {
+        const { fileName } = req.query;
+
+        if (!fileName || typeof fileName !== 'string') {
+            return res.status(400).json({ error: 'fileName query parameter is required' });
+        }
+
+        const { config } = await import('../config/env.js');
+        const apiKey = config.geminiApiKey;
+
+        if (!apiKey) {
+            return res.status(500).json({ error: '[Upload Proxy] GEMINI_API_KEY not configured on server' });
+        }
+
+        const url = `${GEMINI_FILES_BASE_URL}/${fileName}?key=${apiKey}`;
+        const response = await fetch(url);
+
+        if (!response.ok) {
+            return res.status(response.status).json({ error: `Gemini file status check failed: ${response.status}` });
+        }
+
+        const fileInfo = await response.json();
+        res.json(fileInfo);
+    } catch (error) {
+        console.error('[Upload Proxy] proxyGeminiFileStatus error:', error);
+        res.status(500).json({ error: 'Failed to check Gemini file status' });
+    }
+}
+

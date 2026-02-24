@@ -32,3 +32,15 @@ project_source_code.zip
 *.tar.gz
 *.zip
 google-cloud-sdk/
+
+# Secrets & Environment Variables (NEVER commit these)
+.env
+.env.local
+.env.production
+.env.development
+.env.staging
+
+# Codebase exports (may contain secrets)
+codebase_export.txt
+codebase_export*.txt
+project_source_code*.zip

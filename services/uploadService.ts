@@ -15,6 +15,9 @@ import { ERROR_IDS, UploadProgress } from '../types';
 // CONFIGURATION
 // ═══════════════════════════════════════════════════════════════════════════════
 
+// Backend proxy base URL — API key stays on the server
+const API_BASE = import.meta.env.VITE_API_URL || 'http://localhost:8080';
+
 const GEMINI_UPLOAD_BASE_URL = 'https://generativelanguage.googleapis.com/upload/v1beta/files';
 
 // Chunk size must be multiple of 256KB (262144 bytes)
@@ -36,7 +39,6 @@ export interface UploadResult {
 }
 
 export interface UploadOptions {
-  apiKey: string;
   file: File;
   onProgress: (progress: UploadProgress) => void;
   signal?: AbortSignal;
@@ -145,13 +147,11 @@ export function getAllCachedUploads(): CachedUpload[] {
 // ═══════════════════════════════════════════════════════════════════════════════
 
 /**
- * Step 1: Initialize resumable upload session
- * Returns the upload URL to use for subsequent chunk uploads
- * 
- * IMPROVEMENT: Validates cached URL before returning it.
+ * Step 1: Initialize resumable upload session via backend proxy
+ * The backend calls Gemini with the API key and returns the upload URL.
+ * The upload URL itself does NOT contain the API key.
  */
 async function initializeResumableUpload(
-  apiKey: string,
   file: File,
   signal?: AbortSignal
 ): Promise<string> {
@@ -160,10 +160,7 @@ async function initializeResumableUpload(
 
   if (cachedUrl) {
     console.log("Found cached upload session:", cachedUrl);
-    // VALIDATE CACHE: actively ping the URL to see if it's still alive.
-    // If we get 404 (Not Found) or 410 (Gone), or a network error suggesting DNS issues, we discard it.
     try {
-      // Query command is safe and cheap
       const isValid = await checkSessionValidity(cachedUrl, signal);
       if (isValid) {
         console.log("Cached session is valid. Resuming.");
@@ -177,38 +174,28 @@ async function initializeResumableUpload(
     }
   }
 
-  // Start fresh session
-  const url = `${GEMINI_UPLOAD_BASE_URL}?key=${apiKey}`;
-
-  const response = await fetch(url, {
+  // Initialize via backend proxy — API key stays on the server
+  const response = await fetch(`${API_BASE}/api/gemini-upload/init`, {
     method: 'POST',
-    headers: {
-      'X-Goog-Upload-Protocol': 'resumable',
-      'X-Goog-Upload-Command': 'start',
-      'X-Goog-Upload-Header-Content-Length': file.size.toString(),
-      'X-Goog-Upload-Header-Content-Type': file.type,
-      'Content-Type': 'application/json',
-    },
+    headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({
-      file: {
-        display_name: file.name,
-      },
+      fileName: file.name,
+      mimeType: file.type,
+      fileSize: file.size,
     }),
     signal,
   });
 
   if (!response.ok) {
-    const errorText = await response.text();
-    console.error('Failed to initialize upload:', response.status, errorText);
-    throw new Error(`Failed to initialize upload: ${response.status}`);
+    const error = await response.json().catch(() => ({}));
+    throw new Error(`Failed to initialize upload: ${error.error || response.status}`);
   }
 
-  const uploadUrl = response.headers.get('X-Goog-Upload-URL');
+  const { uploadUrl } = await response.json();
   if (!uploadUrl) {
-    throw new Error('No upload URL returned from initialization');
+    throw new Error('No upload URL returned from server');
   }
 
-  // Cache the URL
   localStorage.setItem(storageKey, uploadUrl);
   return uploadUrl;
 }
@@ -443,10 +430,10 @@ async function uploadChunks(
 }
 
 /**
- * Step 3: Poll for file processing completion
+ * Step 3: Poll for file processing completion via backend proxy
+ * The backend checks the Gemini file status using the server-side API key.
  */
 async function waitForProcessing(
-  apiKey: string,
   fileName: string,
   onProgress: (progress: UploadProgress) => void,
   signal?: AbortSignal
@@ -461,22 +448,22 @@ async function waitForProcessing(
     "Stretch your legs for a moment 🧘",
   ];
 
-  // Pick ONE random message and stick to it
   const randomMessage = funMessages[Math.floor(Math.random() * funMessages.length)];
   const messagePrefix = "Processing video: ";
 
-
-  let messageIndex = 0;
   let pollCount = 0;
-  const maxPolls = 900; // 15 minutes max (at 1 second intervals) for large 4K files
+  const maxPolls = 900;
 
   while (pollCount < maxPolls) {
     if (signal?.aborted) {
       throw new Error(ERROR_IDS.OPERATION_CANCELLED);
     }
 
-    const url = `https://generativelanguage.googleapis.com/v1beta/${fileName}?key=${apiKey}`;
-    const response = await fetch(url, { signal });
+    // Poll via backend proxy — API key stays on the server
+    const response = await fetch(
+      `${API_BASE}/api/gemini-upload/status?fileName=${encodeURIComponent(fileName)}`,
+      { signal }
+    );
 
     if (!response.ok) {
       throw new Error(`Failed to check file status: ${response.status}`);
@@ -492,18 +479,15 @@ async function waitForProcessing(
       throw new Error('File processing failed on Gemini server');
     }
 
-    // Still processing
-    // Still processing
     const message = `${messagePrefix}${randomMessage}`;
     onProgress({
       phase: 'processing',
       message,
-      percentage: 80 + Math.min(pollCount / 2, 19), // Slowly increase from 80 to 99
+      percentage: 80 + Math.min(pollCount / 2, 19),
       bytesUploaded: 0,
       totalBytes: 0,
     });
 
-    messageIndex++;
     pollCount++;
     await sleep(1000);
   }
@@ -539,7 +523,7 @@ export async function uploadLargeFileToGemini(options: UploadOptions): Promise<s
         totalBytes: file.size,
       });
 
-      const uploadUrl = await initializeResumableUpload(apiKey, file, signal);
+      const uploadUrl = await initializeResumableUpload(file, signal);
 
       // Phase 2: Upload chunks
       onProgress({
@@ -557,7 +541,7 @@ export async function uploadLargeFileToGemini(options: UploadOptions): Promise<s
       // Phase 3: Wait for processing (if needed)
       // If we reach here, upload itself was successful.
       if (uploadResult.state === 'PROCESSING') {
-        const finalUri = await waitForProcessing(apiKey, uploadResult.fileName, onProgress, signal);
+        const finalUri = await waitForProcessing(uploadResult.fileName, onProgress, signal);
 
         onProgress({
           phase: 'complete',
@@ -688,7 +672,7 @@ async function uploadSmallFile(options: UploadOptions): Promise<string> {
   });
 
   // Wait for processing
-  const finalUri = await waitForProcessing(apiKey, fileName, onProgress, signal);
+  const finalUri = await waitForProcessing(fileName, onProgress, signal);
 
   onProgress({
     phase: 'complete',
@@ -711,13 +695,7 @@ export async function uploadFileToGemini(
   onProgress: (message: string, percentage: number) => void,
   signal?: AbortSignal
 ): Promise<string> {
-  const apiKey = import.meta.env.VITE_GEMINI_API_KEY;
-  if (!apiKey) {
-    throw new Error('VITE_GEMINI_API_KEY is not configured');
-  }
-
   return smartUploadToGemini({
-    apiKey,
     file,
     onProgress: (p) => onProgress(p.message, p.percentage),
     signal

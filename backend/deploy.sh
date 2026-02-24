@@ -1,15 +1,32 @@
 #!/bin/bash
 # Deploy Backend to Cloud Run
 # Run this script from the backend directory
+#
+# Keys are loaded from the project root .env file automatically.
+# Or set manually: export GEMINI_API_KEY="your-key-here"
 
 set -e
+
+# Auto-load .env from project root if it exists
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+if [ -f "$SCRIPT_DIR/../.env" ]; then
+  echo "📋 Loading environment from .env..."
+  set -a; source "$SCRIPT_DIR/../.env"; set +a
+fi
 
 # Configuration
 PROJECT_ID="gen-lang-client-0431510360"
 REGION="europe-west3"
 SERVICE_NAME="gemini-backend-v2"
 GCS_BUCKET="gemini-deliverables-app"
-GEMINI_API_KEY="${GEMINI_API_KEY:-AIzaSyDU2A3ryxp2SQH61g8KjjA5eRomCEKiXIw}"
+
+# Validate required environment variable
+if [ -z "${GEMINI_API_KEY}" ]; then
+  echo "❌ ERROR: GEMINI_API_KEY is not set."
+  echo "   Add it to the .env file in the project root, or:"
+  echo "   export GEMINI_API_KEY=\"your-key-here\""
+  exit 1
+fi
 
 echo "🚀 Deploying V2 Backend to Cloud Run..."
 echo "   Project: $PROJECT_ID"

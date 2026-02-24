@@ -46,7 +46,7 @@ const COLORS = {
 
 // Required environment variables
 const REQUIRED_ENV_VARS = [
-    { key: 'VITE_GEMINI_API_KEY', critical: true, description: 'Gemini API Key for AI analysis' },
+    { key: 'GEMINI_API_KEY', critical: true, description: 'Gemini API Key for backend AI analysis (NOT exposed to browser)' },
     { key: 'VITE_GOOGLE_CLOUD_PROJECT_ID', critical: false, description: 'GCP Project ID for billing' },
     { key: 'VITE_GOOGLE_CLOUD_STORAGE_BUCKET', critical: false, description: 'GCS Bucket for Pro Mode uploads' },
     { key: 'VITE_GOOGLE_CLIENT_ID', critical: false, description: 'OAuth Client ID for Google Sign-In' },
@@ -259,13 +259,13 @@ async function checkBucketAccess(env: Record<string, string>): Promise<CheckResu
 async function checkGeminiApiConnectivity(env: Record<string, string>): Promise<CheckResult> {
     console.log(`${COLORS.bold}🤖 Gemini API Connectivity${COLORS.reset}\n`);
 
-    const apiKey = env['VITE_GEMINI_API_KEY'] || process.env['VITE_GEMINI_API_KEY'];
+    const apiKey = env['GEMINI_API_KEY'] || process.env['GEMINI_API_KEY'];
 
     if (!apiKey || apiKey.includes('YOUR_') || apiKey.length < 20) {
         const result: CheckResult = {
             name: 'Gemini API Connectivity',
             status: 'FAIL',
-            message: 'VITE_GEMINI_API_KEY not configured or invalid',
+            message: 'GEMINI_API_KEY not configured or invalid (backend-only key)',
             critical: true,
         };
         printResult(result);

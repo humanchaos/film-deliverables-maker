@@ -3,7 +3,6 @@ import { ERROR_IDS, UploadProgress } from '../types';
 export interface GCSUploadOptions {
     file: File;
     bucketName: string;
-    apiKey: string;
     accessToken?: string;
     onProgress: (progress: UploadProgress) => void;
     signal?: AbortSignal;

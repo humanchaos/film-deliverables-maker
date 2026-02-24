@@ -4,6 +4,13 @@
 
 set -e
 
+# Validate required environment variable
+if [ -z "${GEMINI_API_KEY}" ]; then
+  echo "❌ ERROR: GEMINI_API_KEY environment variable is not set."
+  echo "   Run: export GEMINI_API_KEY=\"your-key-here\""
+  exit 1
+fi
+
 echo "🚀 Creating backend-v2 from scratch..."
 
 # Clean up
@@ -154,7 +161,7 @@ gcloud run deploy gemini-super-app-backend \
   --memory 2Gi \
   --timeout 600 \
   --allow-unauthenticated \
-  --set-env-vars "GOOGLE_CLOUD_PROJECT=gen-lang-client-0431510360,GCS_BUCKET=gemini-deliverables-app,GEMINI_API_KEY=AIzaSyDU2A3ryxp2SQH61g8KjjA5eRomCEKiXIw"
+  --set-env-vars "GOOGLE_CLOUD_PROJECT=gen-lang-client-0431510360,GCS_BUCKET=gemini-deliverables-app,GEMINI_API_KEY=$GEMINI_API_KEY"
 
 echo ""
 echo "✅ Deployment complete!"

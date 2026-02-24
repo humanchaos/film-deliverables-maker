@@ -1,0 +1,33 @@
+{
+    "name": "gemini-video-analyzer-backend-v2",
+    "version": "2.0.0",
+    "description": "Clean backend service for Gemini Video Analyzer",
+    "main": "dist/index.js",
+    "scripts": {
+        "dev": "tsx watch src/index.ts",
+        "build": "tsc",
+        "start": "node dist/index.js",
+        "typecheck": "tsc --noEmit",
+        "verify": "tsx scripts/verify_migration.ts"
+    },
+    "dependencies": {
+        "@google-cloud/storage": "^7.7.0",
+        "@google-cloud/video-intelligence": "^5.0.0",
+        "@google/genai": "^0.14.0",
+        "cors": "^2.8.5",
+        "dotenv": "^17.2.3",
+        "exceljs": "^4.4.0",
+        "express": "^4.18.2",
+        "firebase-admin": "^12.0.0"
+    },
+    "devDependencies": {
+        "@types/cors": "^2.8.17",
+        "@types/express": "^4.17.21",
+        "@types/node": "^20.10.0",
+        "tsx": "^4.7.0",
+        "typescript": "^5.3.0"
+    },
+    "engines": {
+        "node": ">=20.0.0"
+    }
+}
