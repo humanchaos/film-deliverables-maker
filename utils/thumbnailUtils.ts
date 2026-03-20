@@ -121,62 +121,44 @@ class ThumbnailGenerator {
       }
 
       // 3. Seek to specific time
-      const targetTime = Math.min(seekTime, duration - 0.1);
-      this.videoElement.currentTime = targetTime;
+      // Seek directly to requested time for accurate frame preview
+      // Browser will seek to nearest keyframe and decode forward to exact frame
+      this.videoElement.currentTime = Math.min(seekTime, duration - 0.1);
 
-      // 4. Wait for seek + frame decode verification
-      // We wait for BOTH 'seeked' (media engine done) AND 'timeupdate' (frame actually decoded)
-      // This prevents capturing a stale frame from the previous seek position
+      // 4. Wait for seek
       const seekSuccess = await new Promise<boolean>((resolve) => {
-        let seeked = false;
-        let timeUpdated = false;
-
         const timeoutId = setTimeout(() => {
           cleanup();
-          // If seeked fired but timeupdate didn't, still try to capture
-          resolve(seeked);
+          resolve(false); // Seek failed
         }, 6000);
 
-        const checkDone = () => {
-          if (seeked && timeUpdated) {
-            cleanup();
-            resolve(true);
-          }
-        };
-
         const onSeeked = () => {
-          seeked = true;
-          checkDone();
-        };
-
-        const onTimeUpdate = () => {
-          timeUpdated = true;
-          checkDone();
+          cleanup();
+          resolve(true); // Seek success
         };
 
         const onError = () => {
           cleanup();
-          resolve(false);
+          resolve(false); // Seek failed
         };
 
         const cleanup = () => {
           clearTimeout(timeoutId);
           this.videoElement?.removeEventListener('seeked', onSeeked);
-          this.videoElement?.removeEventListener('timeupdate', onTimeUpdate);
           this.videoElement?.removeEventListener('error', onError);
         };
 
         this.videoElement?.addEventListener('seeked', onSeeked);
-        this.videoElement?.addEventListener('timeupdate', onTimeUpdate);
         this.videoElement?.addEventListener('error', onError);
       });
 
-      // 5. Capture with double-RAF to ensure GPU texture is flushed
+      // 5. Capture
       if (seekSuccess && this.canvasElement && this.videoElement) {
-        // Double requestAnimationFrame: first RAF schedules the
-        // compositing of the new video frame, second RAF ensures
-        // the GPU texture has been uploaded and is ready for drawImage
-        await new Promise(r => requestAnimationFrame(() => requestAnimationFrame(r)));
+        // Wait for one paint frame to ensure video buffer is updated
+        await new Promise(r => requestAnimationFrame(r));
+        // Add a small delay to allow the video decoder to actually render the frame
+        // (Fixes issue where seeked fires but frame is stale)
+        await new Promise(r => setTimeout(r, 450));
 
         const ctx = this.canvasElement.getContext('2d');
         if (ctx) {
