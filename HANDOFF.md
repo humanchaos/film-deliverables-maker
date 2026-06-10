@@ -139,6 +139,8 @@ Two complementary passes run after all chunks complete:
 
 - [x] **v0.9.4 — tcOut duration guard (fourth T0189 run):** v0.9.0's guard validated tcIn/firstAppearance but never tcOut, so a dialogue line at 10:25:58 came back with tcOut 11:25:00 (an hour past program end) and slipped through. Global guard now also handles tcOut: tcIn out of range still drops the entry (misplaced), but tcOut beyond duration or ≤ tcIn is CLAMPED (not dropped) to tcIn + per-type fallback (dialogue 4 s, fauna 2 s, else 3 s) — the line/sighting is real, only the out-point was fabricated. Run otherwise strong: talent 7 clean named people (Andrew Dennis the only miss — named by first name only in his chunk, dropped by the 2-token filter), fauna recovered African Elephant + Cattle Egret via the partial-view rule, graphics + dialogue in-bounds.
 
+- [x] **v0.9.5 — Talent first-name rescue (Andrew Dennis recall):** the v0.9.2 2-token filter dropped people the talent pass only caught by first name in their chunk (e.g. "Andrew" when his lower-third reads "ANDREW DENNIS"). Talent merge now builds an authority set of full "First Last" names from graphics lower-thirds (reliably OCR'd) + already-full talent entries, and promotes a bare first name to the full name ONLY when exactly one authority name starts with it. Ambiguous first names (e.g. "Scott" → both Burnett and Carver) are never rescued — they stay dropped, so no misattribution. Opportunistic (degrades safely if graphics hasn't run yet).
+
 ### Validation sweep vs gold (v0.8.x)
 Full per-module comparison against handmade gold deliverables:
 

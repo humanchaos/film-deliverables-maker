@@ -814,9 +814,44 @@ export async function runAnalysis(type: AnalysisType) {
         if (tokens.length < 2) return false;         // require first + last name
         return /^[A-Za-zÀ-ÿ.'-]+$/.test(tokens[0]);  // first token looks like a name, not "(beard)"
       };
+
+      // Authority list of full "First Last" names, drawn from graphics lower-thirds
+      // (reliably OCR'd, e.g. "ANDREW DENNIS / WILDLIFE ECOLOGIST") plus the talent
+      // entries that already have full names. Used to rescue people the talent pass
+      // only caught by first name in their chunk (so "Andrew" → "Andrew Dennis").
+      const fullNames = new Set<string>();
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      for (const e of allEntries as any[]) if (isRealName(e.name)) fullNames.add(String(e.name).trim());
+      const lts = (_store.getState().project?.deliverables?.graphicsList ?? [])
+        .filter((g) => g.graphicType === "lower_third");
+      for (const lt of lts) {
+        const firstLine = String(lt.content || "").split(/[\n/]/)[0].trim();
+        const toks = firstLine.split(/\s+/).filter(Boolean);
+        if (toks.length === 2 && toks.every((t) => /^[A-Za-zÀ-ÿ.'-]+$/.test(t))) {
+          // Title-case so it merges cleanly with model output ("ANDREW DENNIS" → "Andrew Dennis").
+          fullNames.add(toks.map((t) => t[0].toUpperCase() + t.slice(1).toLowerCase()).join(" "));
+        }
+      }
+      // Map a bare first name to a full name ONLY if exactly one authority name starts
+      // with it. Ambiguous first names (e.g. "Scott" → both Burnett and Carver) are NOT
+      // rescued — they stay dropped, so we never misattribute.
+      const rescueSingle = (raw: unknown): string | null => {
+        const n = String(raw ?? "").trim();
+        const tokens = n.split(/\s+/).filter(Boolean);
+        if (tokens.length !== 1 || GENERIC.test(n) || !/^[A-Za-zÀ-ÿ.'-]{2,}$/.test(tokens[0])) return null;
+        const first = tokens[0].toLowerCase();
+        const matches = [...fullNames].filter((fn) => fn.split(/\s+/)[0].toLowerCase() === first);
+        return matches.length === 1 ? matches[0] : null;
+      };
+
       const before = allEntries.length;
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const named = (allEntries as any[]).filter((e) => isRealName(e.name));
+      const named = (allEntries as any[]).filter((e) => {
+        if (isRealName(e.name)) return true;
+        const rescued = rescueSingle(e.name);
+        if (rescued) { e.name = rescued; return true; } // promote in place, then it merges by name
+        return false;
+      });
       const dropped = before - named.length;
 
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
