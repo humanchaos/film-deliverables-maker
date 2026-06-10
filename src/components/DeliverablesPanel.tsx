@@ -465,20 +465,22 @@ export default function DeliverablesPanel() {
             {/* Action bar */}
             <div className="flex items-center justify-between mb-4">
               <div className="flex items-center gap-2">
-                <button
-                  onClick={() => runAnalysis(activeTab)}
-                  disabled={analyzing[activeTab]}
-                  className="px-3 py-1.5 bg-accent hover:bg-accent-light border border-accent/40 text-white text-xs rounded-lg font-medium transition-colors disabled:opacity-40 glow-accent"
-                >
-                  {analyzing[activeTab] ? (
-                    <span className="flex items-center gap-1.5">
-                      <svg className="w-3 h-3 animate-spin" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="3" fill="none" strokeDasharray="15 47" strokeLinecap="round" /></svg>
-                      {ANALYSIS_ACTION_LABELS[activeTab]}
-                    </span>
-                  ) : (
-                    `Generate ${ANALYSIS_LABELS[activeTab]}`
-                  )}
-                </button>
+                {!(activeTab === "shot_list" && edl) && (
+                  <button
+                    onClick={() => runAnalysis(activeTab)}
+                    disabled={analyzing[activeTab]}
+                    className="px-3 py-1.5 bg-accent hover:bg-accent-light border border-accent/40 text-white text-xs rounded-lg font-medium transition-colors disabled:opacity-40 glow-accent"
+                  >
+                    {analyzing[activeTab] ? (
+                      <span className="flex items-center gap-1.5">
+                        <svg className="w-3 h-3 animate-spin" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="3" fill="none" strokeDasharray="15 47" strokeLinecap="round" /></svg>
+                        {ANALYSIS_ACTION_LABELS[activeTab]}
+                      </span>
+                    ) : (
+                      `Generate ${ANALYSIS_LABELS[activeTab]}`
+                    )}
+                  </button>
+                )}
 
                 {/*
                   Two-pass alternative for shot list only.
