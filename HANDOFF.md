@@ -116,6 +116,7 @@ Two complementary passes run after all chunks complete:
 - [x] **v0.8.2 — Long synopsis retry:** synopses generator retries once if the long-synopsis field comes back empty (was occasionally dropping under concurrent "Generate All" load).
 - [x] **v0.8.2 — Counter reset on re-run:** `clearDeliverable(type)` called at the start of every module generator (whole-video and EDL paths). Tab counters reset to 0 instead of blending across runs.
 - [x] **v0.8.2 — Thumbnail offset awareness (`Thumbnail.tsx`):** subtracts EDL 10h base before seeking the 00-based video. Fixed blank thumbnails across all modules; same class of bug as the earlier frame-zeroing issue.
+- [x] **v0.8.7 — G1: Graphics Part B chunked OCR (`store.ts` `runGraphicsFromEdl`):** lower-thirds / locations Gemini pass now uses the same 5-min / 20-s-overlap chunking pattern as the whole-video shot list path (`CHUNK_MINUTES = 5`, `OVERLAP_SEC = 20`, threshold at 25 min). Each chunk posts `videoMetadata.startOffset/endOffset` to Gemini, chunk-relative TCs are absolutised via `timecodeToSeconds` + offset add + `secondsToTimecode` (frame-accurate), and the existing content-based dedup (first-occurrence per normalised name; location marks re-allowed after 120 s) runs across the merged result. Expected lift: ~48% → ~80% recall on back-half lower-thirds / location marks (51-min pangolin clip: back-half dropout from ~33 min was classic single-call attention decay).
 
 ### Validation sweep vs gold (v0.8.x)
 Full per-module comparison against handmade gold deliverables:
@@ -130,14 +131,14 @@ Full per-module comparison against handmade gold deliverables:
 | Dialogue | 89% text overlap, speakers correctly named via Gemini-on-video | Strong |
 | Synopses | Accurate; Long field empty bug fixed v0.8.2 | Good (subjective) |
 | Fauna | 9/11 species, 3 livestock false positives | Good |
-| Graphics | 48% recall (front half good, back half drop-off after ~33 min) | Improved, needs chunking — see G1 |
+| Graphics | 48% recall at v0.8.6 (front half good, back half drop-off after ~33 min) | Chunked OCR shipped v0.8.7 — awaiting validation |
 
 **Cross-cutting insight:** modules anchored to structured signal (EDL cuts, lower-third OCR text) are gold or near-gold; modules relying on whole-video Gemini attention (Graphics back-half, Talent appearance timing, Fauna completeness) fray at attention decay on 51-min single calls. All converge on the same upgrade — chunk/frame-grid the perception passes and cross-feed the structured extractions.
 
 ### UI
 - [x] Elapsed timer, progress bar, tab badges, export menus, cancel buttons (pre-v0.3.5).
 - [x] **v0.3.9 — Project Settings removed from Upload panel.** Settings now live exclusively in Settings panel.
-- [x] **v0.8.x — Sidebar version display** updated to `v0.8.6` (read from `next.config.ts` → `NEXT_PUBLIC_APP_VERSION`).
+- [x] **v0.8.x — Sidebar version display** updated to `v0.8.7` (read from `next.config.ts` → `NEXT_PUBLIC_APP_VERSION`).
 
 ---
 
@@ -159,7 +160,7 @@ Nine fixes were identified during the validation sweep but held back to keep the
 
 **Tier 1 — biggest correctness wins**
 - **X1** (All): unify timecode base to 10h (EDL) across modules. Currently shots/graphics are 10h, dialogue/talent are 00-based. Single source of truth fixes cross-module alignment.
-- **G1** (Graphics): chunk Part B (the lower-thirds/locations Gemini pass) across the timeline. Front half is good, back half drops to 0 after ~33 min — classic single-whole-video Gemini attention decay. Expected lift: ~48% → ~80% recall.
+- ~~**G1** (Graphics): shipped v0.8.7 — see §2 EDL pipeline subsection.~~
 
 **Tier 2 — cross-module feeds**
 - **T1** (Talent): first-appearance timecodes from graphics lower-thirds. Fixes the Asha de Vos 8:55 → 28:56 error and similar misplacements.
@@ -181,7 +182,7 @@ Nine fixes were identified during the validation sweep but held back to keep the
 
 | Priority | Item | Location | Notes |
 |----------|------|----------|-------|
-| **Next** | Ship Tier 1 of held v0.8 batch (X1 + G1) | see §4 | Biggest correctness wins. |
+| **Next** | Ship Tier 1 of held v0.8 batch (X1) | see §4 | G1 shipped v0.8.7; X1 remains. |
 | **Then** | Cross-module feeds (T1 + D2) | see §4 | Unlock value already in the lower-thirds extraction. |
 | **Then** | Cleanups (Sh1, Sh2, D1, G2, G3) | see §4 | Each small, pure-logic, no-risk. |
 | **Later** | Context-carry across chunks | `store.ts` + `prompts.ts` | Pass last 2–3 shot labels from chunk N into chunk N+1 prompt. Complements overlap by preserving editorial intent, not just pixels. |
@@ -200,7 +201,7 @@ Nine fixes were identified during the validation sweep but held back to keep the
 | **Shot count higher than Gold (whole-video path)** | Whole-video Gemini path produces more shots than human Gold standard | Partially addressed by v0.3.6 continuity bias + v0.3.8 hysteresis. The EDL path doesn't have this problem — it's gold on cuts. Whole-video remains the fallback when no EDL is attached. |
 | **Count mismatch (dashboard vs CSV)** | Dashboard shows fewer shots than CSV row count | May be resolved by v0.3.4/v0.3.6 prompt fixes and v0.8.2 counter reset. Retest. |
 | **Talent names "Unidentified" (whole-video path)** | Talent bios don't always identify speakers by name | Graphics cross-reference (v0.3.3) partially addresses this; T1 (held) does the rest using graphics lower-thirds at the speaker's TC. |
-| **Graphics back-half decay** | Part B (lower-thirds OCR) misses everything after ~33 min on a 51-min video | Single whole-video Gemini call attention decay. Resolved by held G1 (chunk Part B). |
+| **Graphics back-half decay** | Part B (lower-thirds OCR) misses everything after ~33 min on a 51-min video | Single whole-video Gemini call attention decay. **Resolved in v0.8.7 (G1) — awaiting validation.** |
 | **51 phantom host lower-thirds** | Gemini invents `SCOTT BURNETT / Wildlife Ecologist` lower-third per appearance | Resolved by held G2 (dedup + suppress invented host supers). |
 | **`package.json` version drift** | Says `0.3.0`; UI shows `v0.8.6` | UI version read from `next.config.ts`, not `package.json`. Held as cleanup. |
 
