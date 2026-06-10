@@ -1662,15 +1662,32 @@ export async function runGraphicsFromEdl() {
             contents: [{ role: "user", parts: [vp, { text: GRAPHICS_LIST_PROMPT(frameRate, dropFrame, language) + extraNote }] }],
             config: { temperature: 0.1, maxOutputTokens: 8192, responseMimeType: "application/json", thinkingConfig: { thinkingBudget: 0 }, mediaResolution: MediaResolution.MEDIA_RESOLUTION_LOW, abortSignal: abortController.signal },
           });
-          const parsed = parseJsonResponse(res.text ?? "");
-          for (const g of (Array.isArray(parsed.entries) ? parsed.entries : [])) {
-            const gt = String(g.graphicType || "");
-            if (!["lower_third", "location_mark", "title_card", "credit"].includes(gt)) continue;
-            const inS = timecodeToSeconds(String(g.tcIn || ""), frameRate);
-            const outS = timecodeToSeconds(String(g.tcOut || g.tcIn || ""), frameRate);
-            const abs = (chunkOff > 0 && inS < chunkOff) ? inS + chunkOff : inS;
-            const absOut = (chunkOff > 0 && outS < chunkOff) ? outS + chunkOff : outS;
-            ocr.push({ sec: abs, tcOutSec: Math.max(absOut, abs + 1), type: gt, content: String(g.content || ""), position: String(g.position || ""), notes: String(g.notes || "") });
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          const finishReason = (res as any).candidates?.[0]?.finishReason;
+          if (finishReason === "MAX_TOKENS") {
+            console.warn(`[edl-gfx] OCR chunk ${ch.startMin}-${ch.endMin}min: MAX_TOKENS — response may be truncated, some graphics may be missing`);
+          }
+          // Guard against hallucination loops before parsing (same as whole-video path).
+          const rawText = truncateHallucinationLoop(res.text ?? "");
+          if (!rawText.trim()) {
+            console.warn(`[edl-gfx] OCR chunk ${ch.startMin}-${ch.endMin}min: empty response (finishReason=${finishReason}), skipping`);
+          } else {
+            const parsed = parseJsonResponse(rawText);
+            for (const g of (Array.isArray(parsed.entries) ? parsed.entries : [])) {
+              const gt = String(g.graphicType || "");
+              if (!["lower_third", "location_mark", "title_card", "credit"].includes(gt)) continue;
+              // Prompt guarantees chunk-relative TCs (TC_INSTRUCTIONS: "first frame = 00:00:00:00").
+              // Always apply the chunk offset unconditionally — no threshold check — to avoid
+              // misplacing graphics in the overlap zone where chunk-relative TCs exceed chunkOff.
+              // shiftTc() works in integer frame counts for DF-accurate shifting.
+              const rawIn  = String(g.tcIn  || "00:00:00:00");
+              const rawOut = String(g.tcOut || g.tcIn || "00:00:00:00");
+              const shiftedIn  = chunkOff > 0 ? shiftTc(rawIn,  chunkOff, frameRate, dropFrame) : rawIn;
+              const shiftedOut = chunkOff > 0 ? shiftTc(rawOut, chunkOff, frameRate, dropFrame) : rawOut;
+              const abs    = timecodeToSeconds(shiftedIn,  frameRate);
+              const absOut = timecodeToSeconds(shiftedOut, frameRate);
+              ocr.push({ sec: abs, tcOutSec: Math.max(absOut, abs + 1), type: gt, content: String(g.content || ""), position: String(g.position || ""), notes: String(g.notes || "") });
+            }
           }
         } catch (err) {
           if (abortController.signal.aborted) break;
@@ -1704,10 +1721,14 @@ export async function runGraphicsFromEdl() {
       console.log(`[edl-gfx] Part B: ${kept} lower-thirds/locations from ${chunks.length} OCR chunks (deduped from ${ocr.length})`);
     }
 
-    entries.sort((a, b) => timecodeToSeconds(a.tcIn, frameRate) - timecodeToSeconds(b.tcIn, frameRate));
-    console.log(`[edl-gfx] Complete: ${entries.length} graphics`);
-    applyResults("graphics_list", entries, null, frameRate, dropFrame, /* preserveFrames */ true);
-    fillLocationsFromGraphics();
+    if (_cancelFlags.get("graphics_list") || abortController.signal.aborted) {
+      console.log("[edl-gfx] Cancelled — discarding partial results");
+    } else {
+      entries.sort((a, b) => timecodeToSeconds(a.tcIn, frameRate) - timecodeToSeconds(b.tcIn, frameRate));
+      console.log(`[edl-gfx] Complete: ${entries.length} graphics`);
+      applyResults("graphics_list", entries, null, frameRate, dropFrame, /* preserveFrames */ true);
+      fillLocationsFromGraphics();
+    }
   } catch (err) {
     console.error("[edl-gfx] Error:", err);
     _analysisErrors.set("graphics_list", err instanceof Error ? err.message : "EDL graphics failed");
