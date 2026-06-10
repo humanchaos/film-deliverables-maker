@@ -130,13 +130,14 @@ DESCRIPTION FIELD — BROADCAST SHORTHAND (this is how professional shot lists r
 SCENE TYPE — the full shot-size name (structured column): e.g. "Wide Shot", "Medium Shot", "Medium Close-Up", "Close-Up", "Extreme Close-Up", "Aerial", "Insert", "Two-Shot", "POV". Must agree with the abbreviation you used in the description.
 
 CAMERA MOVEMENT (movement only):
-You are looking at a still frame, so movement is harder to determine from a single image. Default to "Static".
-Only mark movement when there is clear visual evidence in this still:
+Default to "Static". Only mark movement when there is clear visual evidence:
+- With MULTIPLE frames: compare the framing across them — if the background/composition shifts noticeably between start and end while the scene is continuous, that indicates a Pan, Tilt, Tracking, Dolly or Zoom (pick whichever the shift suggests). If the framing is essentially identical, it is "Static".
 - Motion blur on background while subject is sharp → likely a tracking shot or pan
 - Significant motion blur throughout → likely handheld or rapid camera move
 - Top-down framing or unusual angle suggesting aerial → "Aerial" or "Drone"
 - Tilted horizon → handheld or Dutch angle
 Conservative defaults: "Static", "Handheld", "Aerial", "Pan", "Tilt", "Dolly", "Zoom", "Tracking".
+IMPORTANT: subject movement alone (an animal walking through a fixed frame) is NOT camera movement — that is still "Static".
 
 NOTES (max 80 characters): Lighting, weather, time of day, mood, archival/B-roll character — anything that does not belong in the other fields.
 
@@ -209,11 +210,16 @@ Return ONLY valid JSON in this exact format:
 }
 `;
 
-export const DIALOGUE_LIST_PROMPT = (frameRate: FrameRate, dropFrame: boolean, language: string) => `
+export const DIALOGUE_LIST_PROMPT = (frameRate: FrameRate, dropFrame: boolean, language: string, clipEndTC: string) => `
 You are an expert assistant editor creating a broadcast-standard dialogue list / transcript.
 
 Analyze this video and create a frame-accurate transcript of ALL spoken dialogue, narration, and voice-over.
 
+${clipEndTC ? `CLIP BOUNDS:
+- This clip runs from 00:00:00${dropFrame ? ";" : ":"}00 to ${clipEndTC}.
+- Every tcIn and tcOut MUST be ≤ ${clipEndTC}. Timecodes beyond ${clipEndTC} do not exist in this clip — never output them.
+- Timecodes are HH:MM:SS${dropFrame ? ";" : ":"}FF positions in the clip, NOT wall-clock times. They advance with the video; they never jump.
+` : ""}
 ${TC_INSTRUCTIONS(frameRate, dropFrame)}
 ${LANG_INSTRUCTION(language)}
 
@@ -391,11 +397,15 @@ CLIP BOUNDS:
 - This clip runs from 00:00:00${dropFrame ? ";" : ":"}00 to ${clipEndTC}.
 - Every tcIn and tcOut MUST be ≤ ${clipEndTC}. Any entry with a timecode beyond this is a hallucination — omit it.
 
+COVERAGE — be systematic and complete:
+- Scan the ENTIRE clip from start to end. Do not stop logging partway through; species appearing late in the clip matter as much as early ones.
+- A wildlife documentary typically features MANY species. Every animal that is a focal subject of a shot must be logged — including small subjects (insects, krill, fish) when the camera clearly features them.
+- Fast-cut montage sequences (e.g. an opening teaser) legitimately show many different species within a minute — log each clearly identifiable focal species, one entry per species.
+
 CONFIDENCE STANDARD — only log what you can clearly see:
-- Only include a species if you are at least 85% confident from what is visually on screen.
+- Only include a species if you are at least 80% confident from what is visually on screen.
 - Do NOT infer species from habitat, region, or context. Log only what you can actually see.
-- If uncertain of exact genus or species, lower the confidence value and describe your uncertainty in Notes.
-- If you find yourself logging more than 4 different species within any 60-second window, stop and reconsider — you are likely pattern-matching from habitat knowledge rather than visual evidence. Keep only the identifications you are most certain about.
+- If uncertain of exact genus or species, log it at the most specific level you ARE confident about (e.g. "whale, likely Balaenoptera sp."), lower the confidence value, and describe your uncertainty in Notes. An honest genus-level entry is better than omitting the animal entirely.
 
 ${TC_INSTRUCTIONS(frameRate, dropFrame)}
 ${LANG_INSTRUCTION(language)}

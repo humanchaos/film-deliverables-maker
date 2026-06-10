@@ -290,7 +290,7 @@ function getPrompt(
 ): string {
   switch (type) {
     case "shot_list": return SHOT_LIST_PROMPT(frameRate, dropFrame, language);
-    case "dialogue_list": return DIALOGUE_LIST_PROMPT(frameRate, dropFrame, language);
+    case "dialogue_list": return DIALOGUE_LIST_PROMPT(frameRate, dropFrame, language, clipEndTC);
     case "graphics_list": return GRAPHICS_LIST_PROMPT(frameRate, dropFrame, language);
     case "synopses": return SYNOPSES_PROMPT(language);
     case "talent_bios": return TALENT_BIOS_PROMPT(frameRate, dropFrame, language, clipEndTC);
@@ -569,27 +569,34 @@ export async function runAnalysis(type: AnalysisType) {
       }
 
       // Shift timecodes from chunk-relative to absolute.
-      // Option A: detect if Gemini returned already-absolute TCs (relative to original file,
-      // not the clipped segment). If the first entry's TC is already >= chunkStart, skip shift.
+      // Majority vote across ALL entries (not just the first): under which interpretation —
+      // chunk-relative [0, windowLen] vs already-absolute [chunkStart, chunkEnd] — do more
+      // entries land inside the chunk's window? A single-sample heuristic mislabels whole
+      // chunks when the first entry is an outlier, which collapses every TC in the chunk.
       const chunkOffsetSec = needsChunking ? Math.floor(startMin * 60) : 0;
+      const windowLenSec = (endMin - startMin) * 60;
       let effectiveOffset = chunkOffsetSec;
       if (chunkOffsetSec > 0 && rawEntries.length > 0) {
+        let relVotes = 0;
+        let absVotes = 0;
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        const firstEntry = rawEntries[0] as any;
-        const sampleTc: unknown = firstEntry.tcIn ?? firstEntry.firstAppearance;
-        if (typeof sampleTc === "string") {
-          const sampleSec = tcToSec(sampleTc);
-          if (sampleSec >= startMin * 60) {
-            console.log(`[analyze] ${windowLabel}: Gemini returned absolute TCs (sample="${sampleTc}", chunkStart=${startMin}min). Skipping shift.`);
-            effectiveOffset = 0;
-          } else {
-            console.log(`[analyze] ${windowLabel}: TC sample="${sampleTc}" (${sampleSec}s) is chunk-relative. Shifting by +${chunkOffsetSec}s.`);
-          }
+        for (const e of rawEntries as any[]) {
+          const tc: unknown = e.tcIn ?? e.firstAppearance;
+          if (typeof tc !== "string") continue;
+          const s = tcToSec(tc);
+          if (s >= 0 && s <= windowLenSec + 5) relVotes++;
+          if (s >= chunkOffsetSec - 5 && s <= chunkOffsetSec + windowLenSec + 5) absVotes++;
+        }
+        if (absVotes > relVotes) {
+          console.log(`[analyze] ${windowLabel}: TCs vote absolute (${absVotes} abs vs ${relVotes} rel). Skipping shift.`);
+          effectiveOffset = 0;
+        } else {
+          console.log(`[analyze] ${windowLabel}: TCs vote chunk-relative (${relVotes} rel vs ${absVotes} abs). Shifting by +${chunkOffsetSec}s.`);
         }
       }
       const tcFields = ["tcIn", "tcOut", "firstAppearance"] as const;
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      return effectiveOffset === 0 ? rawEntries : rawEntries.map((e: any) => {
+      const shifted = effectiveOffset === 0 ? rawEntries : rawEntries.map((e: any) => {
         const r = { ...e };
         for (const key of tcFields) {
           if (typeof r[key] === "string") r[key] = shiftTc(r[key], effectiveOffset, frameRate, dropFrame);
@@ -601,8 +608,27 @@ export async function runAnalysis(type: AnalysisType) {
         }
         return r;
       });
+      // Hard validation: after absolutisation every entry must land inside this chunk's
+      // window (± tolerance). Entries outside are hallucinated TCs — dropping them here is
+      // what keeps one bad chunk from poisoning the merged result.
+      if (!needsChunking) return shifted;
+      const loSec = chunkOffsetSec - 5;
+      const hiSec = chunkOffsetSec + windowLenSec + 5;
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const inWindow = shifted.filter((e: any) => {
+        const tc: unknown = e.tcIn ?? e.firstAppearance;
+        if (typeof tc !== "string") return true; // no TC to judge — keep
+        const s = tcToSec(tc);
+        return s >= loSec && s <= hiSec && s <= durationSec + 2;
+      });
+      if (inWindow.length < shifted.length) {
+        console.warn(`[analyze] ${windowLabel}: dropped ${shifted.length - inWindow.length} entries with out-of-window TCs (hallucinated)`);
+      }
+      return inWindow;
     };
 
+    let failedChunks = 0;
+    let lastChunkError: unknown = null;
     for (let i = 0; i < chunks.length; i++) {
       if (_cancelFlags.get(type)) {
         console.log(`[analyze] ${type} cancelled by user after chunk ${i}/${chunks.length}`);
@@ -626,7 +652,43 @@ export async function runAnalysis(type: AnalysisType) {
           console.log(`[analyze] ${type} chunk ${i + 1} aborted by user`);
           break;
         }
+        failedChunks++;
+        lastChunkError = chunkErr;
         console.error(`[analyze] Chunk ${i + 1}/${chunks.length} failed (skipping):`, chunkErr);
+      }
+    }
+
+    // Surface systemic failures instead of silently applying a sparse/empty result.
+    // The classic case: the Gemini file expired (403 PERMISSION_DENIED) and every chunk
+    // fails — previously this completed "successfully" with 0 entries.
+    if (failedChunks === chunks.length && chunks.length > 0 && !_cancelFlags.get(type) && !abortController.signal.aborted) {
+      const detail = lastChunkError instanceof Error ? lastChunkError.message : String(lastChunkError ?? "");
+      const expired = detail.includes("PERMISSION_DENIED") || detail.includes("403");
+      throw new Error(
+        expired
+          ? "All chunks failed: the uploaded video has expired on Gemini (files are kept 48h). Remove and re-upload the video, then run again."
+          : `All ${chunks.length} chunks failed — no results. Last error: ${detail.slice(0, 200)}`
+      );
+    }
+    if (failedChunks > 0) {
+      console.warn(`[analyze] ${type}: ${failedChunks}/${chunks.length} chunks failed — results are INCOMPLETE for those time ranges`);
+    }
+
+    // Global duration guard: no valid TC can exceed the video duration. Catches fabricated
+    // TCs in non-chunked runs and any stragglers the per-chunk window filter missed.
+    if (durationSec > 0 && allEntries.length > 0) {
+      const before = allEntries.length;
+      const maxSec = durationSec + 2;
+      const inBounds = allEntries.filter((e) => {
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const tc: unknown = (e as any).tcIn ?? (e as any).firstAppearance;
+        if (typeof tc !== "string") return true;
+        return tcToSec(tc) <= maxSec;
+      });
+      if (inBounds.length < before) {
+        console.warn(`[analyze] ${type}: dropped ${before - inBounds.length} entries with TCs beyond video duration (${Math.round(durationSec)}s)`);
+        allEntries.length = 0;
+        allEntries.push(...inBounds);
       }
     }
 
@@ -703,7 +765,7 @@ export async function runAnalysis(type: AnalysisType) {
     // For fauna, filter low-confidence entries and cap species density per time window.
     // Addresses hallucinated clusters (e.g. 8 species in 25 seconds) and wrong identifications.
     if (type === "fauna_log" && allEntries.length > 0) {
-      const CONFIDENCE_FLOOR = 0.85;
+      const CONFIDENCE_FLOOR = 0.8;
       const beforeConf = allEntries.length;
       const confFiltered = allEntries.filter((e) => parseConfidence(e.confidence) >= CONFIDENCE_FLOOR);
       if (confFiltered.length < beforeConf) {
@@ -1066,7 +1128,7 @@ export async function runShotListTwoPass() {
 
     // ─── Phase 2: Build intervals from cuts + duration ──────────────────────
     const boundariesSec = [0, ...dedupedCuts, durationSec];
-    const intervals: { tcIn: string; tcOut: string; midpointSec: number; durationTC: string }[] = [];
+    const intervals: { tcIn: string; tcOut: string; startSec: number; endSec: number; midpointSec: number; durationTC: string }[] = [];
     for (let i = 0; i < boundariesSec.length - 1; i++) {
       const startSec = boundariesSec[i];
       const endSec = boundariesSec[i + 1];
@@ -1076,6 +1138,8 @@ export async function runShotListTwoPass() {
       intervals.push({
         tcIn,
         tcOut,
+        startSec,
+        endSec,
         midpointSec: (startSec + endSec) / 2,
         durationTC: subtractTimecodes(tcOut, tcIn, frameRate, dropFrame),
       });
@@ -1088,23 +1152,34 @@ export async function runShotListTwoPass() {
       return;
     }
 
-    // ─── Phase 3: Extract middle frame for each interval ─────────────────────
+    // ─── Phase 3: Extract start/middle/end frames for each interval ──────────
+    // Three frames per shot let the model see the action unfold (and judge camera
+    // movement); a single ambiguous frame is the main source of hallucinated
+    // descriptions. Sample points are inset 15% (min 0.2s) from the cuts so that
+    // imprecise browser seeking can't land on the adjacent shot. Shots too short
+    // for a safe inset fall back to the midpoint alone.
     // extractFrame() has an internal semaphore (MAX_CONCURRENT = 4 in frames.ts).
-    // We fire all promises at once — the semaphore handles concurrency.
-    // This is roughly 4× faster than the previous sequential `await` loop.
     const { extractFrame } = await import("./frames");
-    const frameDataUrls: (string | null)[] = new Array(intervals.length).fill(null);
+    const frameDataUrls: string[][] = Array.from({ length: intervals.length }, () => []);
 
-    console.log(`[two-pass] Phase 3: extracting ${intervals.length} middle frames (semaphore-capped at 4)`);
+    console.log(`[two-pass] Phase 3: extracting frames for ${intervals.length} shots (semaphore-capped at 4)`);
     let phase3Completed = 0;
     await Promise.allSettled(
       intervals.map(async (iv, idx) => {
         if (_cancelFlags.get("shot_list") || abortController.signal.aborted) return;
-        const midpointTC = secondsToTimecode(iv.midpointSec, frameRate, dropFrame);
+        const span = Math.max(0, iv.endSec - iv.startSec);
+        const inset = Math.max(0.2, span * 0.15);
+        const pts = span < inset * 2.5
+          ? [iv.midpointSec]
+          : [iv.startSec + inset, iv.midpointSec, iv.endSec - inset];
         try {
-          frameDataUrls[idx] = await extractFrame(videoBlobUrl, midpointTC, frameRate);
+          for (const s of pts) {
+            const tc = secondsToTimecode(Math.max(0, Math.min(s, durationSec - 0.05)), frameRate, dropFrame);
+            const f = await extractFrame(videoBlobUrl, tc, frameRate);
+            if (f) frameDataUrls[idx].push(f);
+          }
         } catch (err) {
-          console.warn(`[two-pass] Frame extraction failed for shot ${idx + 1} at ${midpointTC}:`, err);
+          console.warn(`[two-pass] Frame extraction failed for shot ${idx + 1}:`, err);
         } finally {
           phase3Completed++;
           // Phase 3 progress takes the [50%, 60%] band of the timeline indicator.
@@ -1127,14 +1202,11 @@ export async function runShotListTwoPass() {
 
     const describeOne = async (idx: number): Promise<void> => {
       if (_cancelFlags.get("shot_list") || abortController.signal.aborted) return;
-      const dataUrl = frameDataUrls[idx];
-      if (!dataUrl) {
+      const frames = frameDataUrls[idx];
+      if (frames.length === 0) {
         descriptions[idx] = { description: "", sceneType: "", cameraMovement: "Static", notes: "[frame missing]" };
         return;
       }
-
-      // Strip "data:image/jpeg;base64," prefix
-      const base64 = dataUrl.split(",")[1] ?? "";
 
       try {
         const result = await ai.models.generateContent({
@@ -1143,7 +1215,8 @@ export async function runShotListTwoPass() {
             {
               role: "user",
               parts: [
-                { inlineData: { data: base64, mimeType: "image/jpeg" } },
+                // Strip "data:image/jpeg;base64," prefix from each frame
+                ...frames.map((f) => ({ inlineData: { data: f.split(",")[1] ?? "", mimeType: "image/jpeg" } })),
                 { text: describePrompt },
               ],
             },
@@ -1332,8 +1405,14 @@ export async function runShotListFromEdl() {
         if (_cancelFlags.get("shot_list") || abortController.signal.aborted) return;
         const r = rows[idx];
         // Three sample points within the shot, clamped inside the clip.
+        // Inset 15% of the span (min 0.2s) from each cut: browser seeking is not
+        // frame-exact, and a sample taken ~1 frame inside a cut routinely lands on the
+        // ADJACENT shot — the model then blends two shots into one hallucinated description.
+        // Shots too short for a safe inset are described from the midpoint alone.
         const span = Math.max(0, r.outSec - r.inSec);
-        const pts = [r.inSec + Math.min(0.05, span * 0.1), (r.inSec + r.outSec) / 2, r.outSec - Math.min(0.05, span * 0.1)]
+        const inset = Math.max(0.2, span * 0.15);
+        const mid = (r.inSec + r.outSec) / 2;
+        const pts = (span < inset * 2.5 ? [mid] : [r.inSec + inset, mid, r.outSec - inset])
           .map((s) => Math.max(0, Math.min(s, durSec - 0.05)));
         const uniq = [...new Set(pts.map((s) => Math.round(s * 1000) / 1000))];
         const frames: string[] = [];

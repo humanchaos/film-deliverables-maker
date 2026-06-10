@@ -24,7 +24,7 @@ function getPrompt(
     case "shot_list":
       return SHOT_LIST_PROMPT(frameRate, dropFrame, language);
     case "dialogue_list":
-      return DIALOGUE_LIST_PROMPT(frameRate, dropFrame, language);
+      return DIALOGUE_LIST_PROMPT(frameRate, dropFrame, language, "");
     case "graphics_list":
       return GRAPHICS_LIST_PROMPT(frameRate, dropFrame, language);
     case "synopses":
