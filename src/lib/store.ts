@@ -680,17 +680,33 @@ export async function runAnalysis(type: AnalysisType) {
 
     // Global duration guard: no valid TC can exceed the video duration. Catches fabricated
     // TCs in non-chunked runs and any stragglers the per-chunk window filter missed.
+    // tcIn beyond duration → drop the whole entry (it's misplaced). tcOut beyond duration
+    // or ≤ tcIn → CLAMP, not drop: the line/sighting is real, only the out-point is bad
+    // (e.g. a dialogue line at 10:25:58 came back with tcOut 11:25:00, an hour past end).
     if (durationSec > 0 && allEntries.length > 0) {
       const before = allEntries.length;
       const maxSec = durationSec + 2;
+      // Per-type fallback span when an out-point must be synthesized.
+      const fallbackSec = type === "dialogue_list" ? 4 : type === "fauna_log" ? 2 : 3;
+      let clamped = 0;
       const inBounds = allEntries.filter((e) => {
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        const tc: unknown = (e as any).tcIn ?? (e as any).firstAppearance;
-        if (typeof tc !== "string") return true;
-        return tcToSec(tc) <= maxSec;
+        const ee = e as any;
+        const inTcRaw: unknown = ee.tcIn ?? ee.firstAppearance;
+        if (typeof inTcRaw !== "string") return true;
+        const inSec = tcToSec(inTcRaw);
+        if (inSec > maxSec) return false; // tcIn out of range → misplaced, drop
+        if (typeof ee.tcOut === "string" && ee.tcOut) {
+          const outSec = tcToSec(ee.tcOut);
+          if (outSec > maxSec || outSec <= inSec) {
+            ee.tcOut = shiftTc(ee.tcIn ?? inTcRaw, fallbackSec, frameRate, dropFrame);
+            clamped++;
+          }
+        }
+        return true;
       });
-      if (inBounds.length < before) {
-        console.warn(`[analyze] ${type}: dropped ${before - inBounds.length} entries with TCs beyond video duration (${Math.round(durationSec)}s)`);
+      if (inBounds.length < before || clamped > 0) {
+        console.warn(`[analyze] ${type}: dropped ${before - inBounds.length} entries with out-of-range tcIn, clamped ${clamped} bad tcOut (video ${Math.round(durationSec)}s)`);
         allEntries.length = 0;
         allEntries.push(...inBounds);
       }

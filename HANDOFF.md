@@ -137,6 +137,8 @@ Two complementary passes run after all chunks complete:
 
 - [x] **v0.9.3 — Fauna recall pass:** (1) fauna chunks now run at DEFAULT media resolution instead of `MEDIA_RESOLUTION_LOW` — 64 tok/frame was killing species ID on brief montage shots, small animals (bats, krill, insects) and partial views (sloth arm, tiger flank); a 5-min chunk at default res is ~77k input tokens, well within budget. Other types keep LOW. (2) `FAUNA_LOG_PROMPT` coverage rules extended: brief 1–2 s shots count, identifiable partial views count (feet/fluke/fin/arm), handled/captive/lab/deceased animals count (context in Notes; only taxidermy/sculpture/illustration excluded). T0189 known misses this targets: tiger, bats, pangolin, sloth, elephant, sperm whale.
 
+- [x] **v0.9.4 — tcOut duration guard (fourth T0189 run):** v0.9.0's guard validated tcIn/firstAppearance but never tcOut, so a dialogue line at 10:25:58 came back with tcOut 11:25:00 (an hour past program end) and slipped through. Global guard now also handles tcOut: tcIn out of range still drops the entry (misplaced), but tcOut beyond duration or ≤ tcIn is CLAMPED (not dropped) to tcIn + per-type fallback (dialogue 4 s, fauna 2 s, else 3 s) — the line/sighting is real, only the out-point was fabricated. Run otherwise strong: talent 7 clean named people (Andrew Dennis the only miss — named by first name only in his chunk, dropped by the 2-token filter), fauna recovered African Elephant + Cattle Egret via the partial-view rule, graphics + dialogue in-bounds.
+
 ### Validation sweep vs gold (v0.8.x)
 Full per-module comparison against handmade gold deliverables:
 
