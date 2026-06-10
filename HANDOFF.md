@@ -133,6 +133,8 @@ Two complementary passes run after all chunks complete:
   - **Dialogue chunk-overlap duplicates:** lines near chunk boundaries transcribed by both adjacent chunks with ±few-second TCs and sometimes different speaker labels. Normalized-text dedup within 30 s, restricted to the overlap re-scan zone just after nominal boundaries (legit quick repeats like "Blow!" ×5 untouched).
   - **Fauna zero-duration repair:** montage sightings with tcOut ≤ tcIn get tcOut extended to tcIn + 1 s (sighting is real, duration wasn't).
 
+- [x] **v0.9.2 — Talent bios precision fix (third T0189 run):** v0.9.1 chunking fixed recall (all named experts back) but flooded the list to 32 entries — every chunk re-described crew/crowd with different generic labels ("Unidentified Male (Beard)", boat-crew, Ig-Nobel audience) that never merged, plus bare-first-name duplicates ("Scott" vs "Scott Burnett"). Fixed two ways: (1) `TALENT_BIOS_PROMPT` rewritten to NAMED-ONLY — only people whose real first+last name is established on screen/in narration; explicitly excludes unidentified/background/crew/audience and bare first names. (2) Post-merge filter in `processWindow` drops any entry whose name hits a generic-descriptor regex or lacks a first+last token before the name-merge runs. Expected: ~32 → ~7-8 clean named people matching the gold talent list. Graphics `11:xx` leak and dialogue TC collapse both confirmed FIXED in this run.
+
 ### Validation sweep vs gold (v0.8.x)
 Full per-module comparison against handmade gold deliverables:
 

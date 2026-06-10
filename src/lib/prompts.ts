@@ -321,14 +321,19 @@ Return ONLY valid JSON:
 export const TALENT_BIOS_PROMPT = (frameRate: FrameRate, dropFrame: boolean, language: string, clipEndTC: string) => `
 You are an expert researcher creating talent profiles for a documentary's deliverables package.
 
-Analyze this video and identify every person who is VISUALLY ON SCREEN (their face or body is visible in the frame).
+Analyze this video and identify the NAMED on-screen talent — the presenter/host, interviewees, and experts whose REAL NAME is established on screen or in the narration. This is a talent/credits deliverable, not a census of everyone in frame.
+
+⚠️ NAMED PEOPLE ONLY — this is the most important rule:
+- ONLY include a person if you can determine their ACTUAL NAME (first + last, e.g. "Scott Carver", "Patricia Yang") from a lower-third, credit, on-screen text, or from narration/dialogue that names them.
+- DO NOT include anyone you cannot name. No "Unidentified male", no "Man with beard", no "Research Assistant", no "Boat crew", no generic descriptions. If you don't know the real name, OMIT the person entirely.
+- DO NOT log background people, crowds, audiences (e.g. an awards-ceremony audience), bystanders, assistants, or crew — even if visible. Only the recurring host and the named contributors belong here.
+- The same person must appear ONCE. Always use their full name spelled identically every time (e.g. always "Scott Burnett", never also "Scott" or "the presenter"). Merge all their appearances under that one full name.
 
 NAME IDENTIFICATION — use ALL of these sources, in priority order:
 1. LOWER THIRDS / CHYRONS: Text overlays superimposed at the bottom of the frame that name the person. These appear as white or coloured text, often with a title line beneath. Scan every frame carefully — lower thirds are the most reliable source of names.
 2. CREDIT SEQUENCES: Opening or closing credits that name cast, crew, interviewees.
 3. ON-SCREEN TEXT: Any other text overlays, title cards, or captions that identify people.
 4. DIALOGUE: Listen for moments when characters address each other by name ("Thank you, Ellen", "As Lisa explained…"), or when a narrator introduces someone ("Dr Smith has spent 20 years…").
-5. CONTEXT / INFERENCE: If none of the above identifies a person, describe them by appearance and role (e.g., "Unidentified male ranger").
 
 CRITICAL: Only log timecodes where the person is VISUALLY VISIBLE in the video frame. Do NOT log timecodes where:
 - The person is only heard speaking (voice-over) but B-roll or other footage is shown

@@ -776,17 +776,33 @@ export async function runAnalysis(type: AnalysisType) {
       }
     }
 
-    // For talent bios, merge people across chunks by normalized name. Every chunk
-    // re-reports the people it sees, so the same person appears once per chunk:
-    // keep the earliest firstAppearance, the longest bio, and the union of appearances.
+    // For talent bios, merge people across chunks by normalized name, AND drop
+    // unnamed/background people. Chunking lifts recall (every real expert is seen) but
+    // each chunk also re-describes crew/crowd with a different generic label
+    // ("Unidentified Male (Beard)", "Man with hat", "Research Assistant"), so without
+    // this filter the list balloons with junk that never merges.
     if (type === "talent_bios" && allEntries.length > 0) {
       const normName = (s: unknown) => String(s ?? "").toLowerCase().replace(/[^a-z0-9]+/g, " ").trim();
+      // A name is "real" only if it's a proper name we can attribute. Reject generic
+      // descriptors and bare role words — those are unnamed background people.
+      const GENERIC = /\b(unidentified|unknown|unnamed|man|woman|male|female|boy|girl|person|people|guy|crew|assistant|audience|crowd|bystander|narrator|presenter|host|subject|interviewee|scientist|researcher|volunteer|photographer|ranger|driver|worker|child|kid)\b/i;
+      const isRealName = (raw: unknown): boolean => {
+        const n = String(raw ?? "").trim();
+        if (!n) return false;
+        if (GENERIC.test(n)) return false;          // contains a generic descriptor word
+        const tokens = n.split(/\s+/).filter(Boolean);
+        if (tokens.length < 2) return false;         // require first + last name
+        return /^[A-Za-zÀ-ÿ.'-]+$/.test(tokens[0]);  // first token looks like a name, not "(beard)"
+      };
+      const before = allEntries.length;
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const named = (allEntries as any[]).filter((e) => isRealName(e.name));
+      const dropped = before - named.length;
+
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const byName = new Map<string, any>();
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      for (const e of allEntries as any[]) {
+      for (const e of named) {
         const key = normName(e.name);
-        if (!key) continue;
         const existing = byName.get(key);
         if (!existing) {
           byName.set(key, { ...e, appearances: Array.isArray(e.appearances) ? [...e.appearances] : [] });
@@ -807,7 +823,7 @@ export async function runAnalysis(type: AnalysisType) {
         return { ...p, appearances: uniq.slice(0, 10) };
       });
       merged.sort((a, b) => tcToSec(String(a.firstAppearance ?? "")) - tcToSec(String(b.firstAppearance ?? "")));
-      console.log(`[analyze] Talent: merged ${allEntries.length} per-chunk sightings into ${merged.length} people`);
+      console.log(`[analyze] Talent: ${before} sightings → ${merged.length} named people (dropped ${dropped} unnamed/background)`);
       allEntries.length = 0;
       allEntries.push(...merged);
     }
