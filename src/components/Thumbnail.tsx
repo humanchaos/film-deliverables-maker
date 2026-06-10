@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { useStore } from "@/lib/store";
 import { extractFrame } from "@/lib/frames";
+import { timecodeToSeconds, secondsToTimecode } from "@/lib/timecode";
 import { FrameRate } from "@/lib/types";
 
 interface ThumbnailProps {
@@ -15,6 +16,10 @@ interface ThumbnailProps {
 
 export default function Thumbnail({ timecode, frameRate, className = "", width = 120, height = 68 }: ThumbnailProps) {
   const videoBlobUrl = useStore((s) => s.videoBlobUrl);
+  // EDL-sourced timecodes are in the EDL's record base (e.g. 10:00:00:00) while
+  // the video file is 0-based. Subtract the EDL start so we seek to the right
+  // frame. No EDL → no offset → unchanged.
+  const edlStartTC = useStore((s) => s.project?.edl?.startTC ?? null);
   const [src, setSrc] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
 
@@ -25,7 +30,13 @@ export default function Thumbnail({ timecode, frameRate, className = "", width =
     setSrc(null);
     setLoading(true);
 
-    extractFrame(videoBlobUrl, timecode, frameRate)
+    let extractTc = timecode;
+    if (edlStartTC) {
+      const rel = timecodeToSeconds(timecode, frameRate) - timecodeToSeconds(edlStartTC, frameRate);
+      extractTc = secondsToTimecode(Math.max(0, rel), frameRate, false);
+    }
+
+    extractFrame(videoBlobUrl, extractTc, frameRate)
       .then((dataUrl) => {
         if (!cancelled) {
           setSrc(dataUrl);
@@ -39,7 +50,7 @@ export default function Thumbnail({ timecode, frameRate, className = "", width =
     return () => {
       cancelled = true;
     };
-  }, [videoBlobUrl, timecode, frameRate]);
+  }, [videoBlobUrl, timecode, frameRate, edlStartTC]);
 
   if (!videoBlobUrl) return null;
 

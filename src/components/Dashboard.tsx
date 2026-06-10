@@ -36,7 +36,7 @@ function WelcomeScreen({ onNavigate }: { onNavigate: (panel: ActivePanel) => voi
           </svg>
         </div>
         <div className="mb-2 text-xs tracking-[0.25em] uppercase text-accent font-medium">Film Deliverables</div>
-        <h2 className="text-3xl font-bold mb-3 tracking-tight">Welcome to NEVER</h2>
+        <h2 className="text-3xl font-bold mb-3 tracking-tight">Film Deliverables Maker</h2>
         <p className="text-muted-light mb-8 leading-relaxed text-sm">
           AI-powered broadcast deliverables for post-production professionals.
           Upload your master file and generate frame-accurate shot lists,

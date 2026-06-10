@@ -35,6 +35,10 @@ function downloadCsv(filename: string, content: string) {
 }
 
 export function exportShotList(shots: ShotEntry[], projectName: string) {
+  // Source columns are included only when at least one shot carries EDL-sourced
+  // provenance, so video-only exports keep their original shape.
+  const hasSource = shots.some((s) => s.sourceClip || s.source);
+  const hasLocation = shots.some((s) => s.location);
   const header = toCsvRow([
     "Shot #",
     "TC In",
@@ -44,6 +48,8 @@ export function exportShotList(shots: ShotEntry[], projectName: string) {
     "Camera Movement",
     "Description",
     "Notes",
+    ...(hasLocation ? ["Location"] : []),
+    ...(hasSource ? ["Source", "Source Clip", "Source TC In", "Source TC Out"] : []),
   ]);
   const rows = shots.map((s) =>
     toCsvRow([
@@ -55,6 +61,15 @@ export function exportShotList(shots: ShotEntry[], projectName: string) {
       s.cameraMovement,
       s.description,
       s.notes,
+      ...(hasLocation ? [s.location ?? ""] : []),
+      ...(hasSource
+        ? [
+            s.source ? `${s.source}${s.sourceConfidence === "pending_db" ? " (pending DB)" : ""}` : "",
+            s.sourceClip ?? "",
+            s.sourceInTC ?? "",
+            s.sourceOutTC ?? "",
+          ]
+        : []),
     ])
   );
   downloadCsv(`${projectName}_shot_list.csv`, [header, ...rows].join("\n"));

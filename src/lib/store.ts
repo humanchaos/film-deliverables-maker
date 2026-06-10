@@ -9,7 +9,12 @@ import {
   SYNOPSES_PROMPT,
   TALENT_BIOS_PROMPT,
   FAUNA_LOG_PROMPT,
+  SHOT_DESCRIBE_PROMPT,
 } from "./prompts";
+import { secondsToTimecode, subtractTimecodes, timecodeToSeconds } from "./timecode";
+import { detectScenes } from "./sceneDetect";
+import { edlTcToFrames, type EdlEvent } from "./edl";
+import { resolveSource } from "./source";
 
 // In-memory client-side store (zustand-like but zero-dep)
 type Listener = () => void;
@@ -44,6 +49,28 @@ function createStore(): Store {
     listeners.forEach((l) => l());
   }
 
+  // localStorage persistence for project + jobs. The API key has its own slot
+  // (legacy). videoBlobUrl is NEVER persisted — Blob URLs are scoped to the
+  // document; on hydrate we recreate it from the IndexedDB blob cache.
+  // Quotas: localStorage caps at ~5–10 MB per origin; a project record is
+  // typically <100 KB (no media payload, just metadata + JSON deliverables),
+  // so we're nowhere near the limit even for large shot lists.
+  function persistProjectAndJobs() {
+    if (typeof window === "undefined") return;
+    try {
+      if (state.project) {
+        localStorage.setItem("fdm_project", JSON.stringify(state.project));
+      } else {
+        localStorage.removeItem("fdm_project");
+      }
+      localStorage.setItem("fdm_jobs", JSON.stringify(state.jobs));
+    } catch (e) {
+      // Quota exceeded or storage disabled — non-fatal, project still works in
+      // this session. Surface to console so it's debuggable.
+      console.warn("[store] Could not persist project/jobs to localStorage:", e);
+    }
+  }
+
   return {
     get project() { return state.project; },
     get jobs() { return state.jobs; },
@@ -60,12 +87,14 @@ function createStore(): Store {
 
     setProject(project: Project | null) {
       state = { ...state, project };
+      persistProjectAndJobs();
       notify();
     },
 
     updateProject(updates: Partial<Project>) {
       if (!state.project) return;
       state = { ...state, project: { ...state.project, ...updates, updatedAt: new Date().toISOString() } };
+      persistProjectAndJobs();
       notify();
     },
 
@@ -79,17 +108,20 @@ function createStore(): Store {
           updatedAt: new Date().toISOString(),
         },
       };
+      persistProjectAndJobs();
       notify();
     },
 
     setProjectStatus(status: ProjectStatus) {
       if (!state.project) return;
       state = { ...state, project: { ...state.project, status, updatedAt: new Date().toISOString() } };
+      persistProjectAndJobs();
       notify();
     },
 
     setJobs(jobs: AnalysisJob[]) {
       state = { ...state, jobs };
+      persistProjectAndJobs();
       notify();
     },
 
@@ -98,6 +130,7 @@ function createStore(): Store {
         ...state,
         jobs: state.jobs.map((j) => (j.id === jobId ? { ...j, ...updates } : j)),
       };
+      persistProjectAndJobs();
       notify();
     },
 
@@ -137,6 +170,52 @@ export function hydrateStore() {
   _hydrated = true;
   const savedKey = localStorage.getItem("gemini_api_key");
   if (savedKey) _store.setApiKey(savedKey);
+
+  // Restore the project + jobs from localStorage. This MUST run before the
+  // blob restore below, because that lookup keys off `project.videoFile.geminiFileUri`.
+  // Use silent state assignment (not the setters) to avoid persisting back what
+  // we just read, and to suppress an early notify before listeners are wired.
+  try {
+    const savedProject = localStorage.getItem("fdm_project");
+    if (savedProject) {
+      const proj = JSON.parse(savedProject) as Project;
+      _store.setProject(proj);
+      console.log(`[hydrate] Restored project "${proj.name}" from localStorage`);
+    }
+    const savedJobs = localStorage.getItem("fdm_jobs");
+    if (savedJobs) {
+      const jobs = JSON.parse(savedJobs) as AnalysisJob[];
+      if (Array.isArray(jobs)) _store.setJobs(jobs);
+    }
+  } catch (e) {
+    console.warn("[hydrate] Could not parse persisted project/jobs:", e);
+  }
+
+  // Restore the video blob from IndexedDB if a project with a Gemini URI is
+  // already in the store. This lets a page refresh skip the multi-minute
+  // Gemini Files API re-upload — we have the file locally AND the URI is
+  // typically still valid for 48h on Gemini's side. The blob URL is
+  // re-created from the stored bytes; the URI in the project record is
+  // re-used as-is by the analysis pipeline. Runs async to avoid blocking
+  // initial render.
+  const proj = _store.getState().project;
+  const uri = proj?.videoFile?.geminiFileUri;
+  if (uri && !_store.getState().videoBlobUrl) {
+    (async () => {
+      try {
+        const { loadVideoBlob } = await import("./blobStore");
+        const blob = await loadVideoBlob(uri);
+        if (blob) {
+          _store.setVideoBlobUrl(URL.createObjectURL(blob));
+          console.log(`[hydrate] Restored ${(blob.size/1024/1024).toFixed(1)}MB video blob from IndexedDB — no re-upload needed`);
+        } else {
+          console.log("[hydrate] No cached blob found for current project URI — re-upload will be required to run two-pass detection");
+        }
+      } catch (e) {
+        console.warn("[hydrate] Blob restore failed:", e);
+      }
+    })();
+  }
 }
 
 // Track running analyses so they survive component unmounts
@@ -224,6 +303,9 @@ const CHUNKED_TYPES: AnalysisType[] = ["shot_list", "dialogue_list", "graphics_l
 // Chunk size in minutes — 5 min prevents MAX_TOKENS hallucination on dense documentary footage.
 // At 10 min, Gemini fills the tail of its output budget with repetitive identical shots.
 const CHUNK_MINUTES = 5;
+// Seconds each chunk extends into the next chunk's territory.
+// Ensures shots crossing a 5-min seam are fully visible in at least one chunk.
+const OVERLAP_SEC = 20;
 // Minimum video duration (seconds) before chunking kicks in
 const CHUNK_THRESHOLD_SEC = 25 * 60; // 25 minutes
 
@@ -307,16 +389,36 @@ function formatMinSec(totalMinutes: number): string {
  * (shot_list, dialogue_list, graphics_list, fauna_log) into 20-minute segments.
  * synopses and talent_bios always run as single calls (they need full context).
  */
+/** Reset a deliverable to empty so its tab counter resets at the START of a run. */
+function clearDeliverable(type: AnalysisType) {
+  switch (type) {
+    case "shot_list": _store.updateDeliverables({ shotList: [] }); break;
+    case "dialogue_list": _store.updateDeliverables({ dialogueList: [] }); break;
+    case "graphics_list": _store.updateDeliverables({ graphicsList: [] }); break;
+    case "synopses": _store.updateDeliverables({ synopses: null }); break;
+    case "talent_bios": _store.updateDeliverables({ talentBios: [] }); break;
+    case "fauna_log": _store.updateDeliverables({ faunaLog: [] }); break;
+  }
+}
+
 export async function runAnalysis(type: AnalysisType) {
   const state = _store.getState();
   const project = state.project;
   const apiKey = state.apiKey;
+
+  // Graphics: when an EDL is attached, use the hybrid EDL+OCR path — the EDL
+  // carries the CGI/title graphic clips with frame-exact timing.
+  if (type === "graphics_list" && project?.edl && Array.isArray(project.edl.events) && project.edl.events.length > 0) {
+    return runGraphicsFromEdl();
+  }
+
   if (!project?.videoFile?.geminiFileUri || !apiKey) return;
   if (_analyzing.get(type)) return; // already running
 
   _analyzing.set(type, true);
   _analysisErrors.set(type, "");
   _analysisProgress.delete(type);
+  clearDeliverable(type); // reset counter/results at the start of each run
   notifyAnalysis();
 
   try {
@@ -337,7 +439,7 @@ export async function runAnalysis(type: AnalysisType) {
     if (needsChunking) {
       const totalMin = durationSec / 60;
       for (let start = 0; start < totalMin; start += CHUNK_MINUTES) {
-        chunks.push({ startMin: start, endMin: Math.min(start + CHUNK_MINUTES, totalMin) });
+        chunks.push({ startMin: start, endMin: Math.min(start + CHUNK_MINUTES + OVERLAP_SEC / 60, totalMin) });
       }
       console.log(`[analyze] Video is ${totalMin.toFixed(1)} min — splitting ${type} into ${chunks.length} chunks of ${CHUNK_MINUTES} min`);
     } else {
@@ -421,7 +523,25 @@ export async function runAnalysis(type: AnalysisType) {
 
       // Synopses is a single object, not an array — handle separately
       if (type === "synopses") {
-        const parsed = parseJsonResponse(responseText);
+        let parsed = parseJsonResponse(responseText);
+        // The long synopsis is the last + longest field; under concurrent load it
+        // sometimes comes back empty/truncated. Retry once if so.
+        if (!String(parsed?.longSynopsis ?? "").trim() && !abortController.signal.aborted) {
+          console.warn("[analyze] Synopses long synopsis empty — retrying once");
+          try {
+            const retry = await ai.models.generateContent({
+              model: "gemini-2.5-flash",
+              contents: [{ role: "user", parts: [videoPart, { text: prompt }] }],
+              config: {
+                temperature: 0.2, maxOutputTokens: 32768, responseMimeType: "application/json",
+                thinkingConfig: { thinkingBudget: 0 }, mediaResolution: MediaResolution.MEDIA_RESOLUTION_LOW,
+                abortSignal: abortController.signal,
+              },
+            });
+            const reparsed = parseJsonResponse(retry.text ?? "");
+            if (String(reparsed?.longSynopsis ?? "").trim()) parsed = reparsed;
+          } catch { /* keep first parse */ }
+        }
         _store.updateDeliverables({ synopses: parsed });
         return [];
       }
@@ -527,6 +647,39 @@ export async function runAnalysis(type: AnalysisType) {
       }
     }
 
+    // Stitch shots split by chunk boundaries.
+    // With overlap, chunk N sees a shot fully (e.g. 4:52–5:08) while chunk N+1 may still
+    // report the same shot starting at the nominal boundary (5:00). Detect this by checking
+    // whether a new entry's tcIn lands within 3s of a nominal boundary AND the previous
+    // entry already covers that time. When detected, extend the previous entry's tcOut
+    // (if the new entry reaches further) and discard the duplicate.
+    if (needsChunking && allEntries.length > 0) {
+      const BOUNDARY_TOLERANCE_SEC = 3;
+      const chunkPeriodSec = CHUNK_MINUTES * 60;
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const stitched: any[] = [];
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      for (const e of allEntries) {
+        const tcInSec = tcToSec(e.tcIn ?? "");
+        const mod = tcInSec % chunkPeriodSec;
+        const nearBoundary = mod < BOUNDARY_TOLERANCE_SEC || mod > chunkPeriodSec - BOUNDARY_TOLERANCE_SEC;
+        const prev = stitched[stitched.length - 1];
+        const prevTcOutSec = prev ? tcToSec(prev.tcOut ?? prev.tcIn ?? "") : -1;
+        if (prev && nearBoundary && prevTcOutSec >= tcInSec - BOUNDARY_TOLERANCE_SEC) {
+          const currTcOutSec = tcToSec(e.tcOut ?? e.tcIn ?? "");
+          if (currTcOutSec > prevTcOutSec) prev.tcOut = e.tcOut;
+          console.log(`[analyze] Stitched boundary split at ${e.tcIn} into previous shot (${prev.tcIn}–${prev.tcOut})`);
+        } else {
+          stitched.push(e);
+        }
+      }
+      if (stitched.length < allEntries.length) {
+        console.log(`[analyze] Boundary stitch merged ${allEntries.length - stitched.length} split shots`);
+        allEntries.length = 0;
+        allEntries.push(...stitched);
+      }
+    }
+
     // For fauna, keep only the first appearance of each species regardless of chunking.
     // The AI re-identifies species in every chunk, so duplicates always occur across chunks.
     if (type === "fauna_log" && allEntries.length > 0) {
@@ -587,11 +740,16 @@ export async function runAnalysis(type: AnalysisType) {
       }
     }
 
-    // For shot lists, drop hallucinated micro-cuts shorter than 8 frames.
+    // For shot lists, drop zero-length or inverted shots, then micro-cuts under 8 frames.
     if (type === "shot_list" && allEntries.length > 0) {
       const minFrames = 8;
       const before = allEntries.length;
       const filtered = allEntries.filter((e) => {
+        // Drop shots where tcOut <= tcIn — Gemini occasionally produces inverted or
+        // zero-length entries when it hallucinates a cut at a single frame boundary.
+        if (typeof e.tcIn === "string" && typeof e.tcOut === "string") {
+          if (tcToSec(e.tcOut) <= tcToSec(e.tcIn)) return false;
+        }
         const dur = (e.duration || "").replace(/;/g, ":");
         const parts = dur.split(":").map(Number);
         if (parts.length !== 4) return true; // keep if unparseable
@@ -602,9 +760,99 @@ export async function runAnalysis(type: AnalysisType) {
         return totalFrames >= minFrames;
       });
       if (filtered.length < before) {
-        console.log(`[analyze] Shot list: removed ${before - filtered.length} micro-cuts under ${minFrames} frames (${before} → ${filtered.length})`);
+        console.log(`[analyze] Shot list: removed ${before - filtered.length} invalid/micro shots (${before} → ${filtered.length})`);
         allEntries.length = 0;
         allEntries.push(...filtered);
+      }
+    }
+
+    // Label normalization: flag English descriptions when German output expected (warn only),
+    // and truncate descriptions that exceed 120 characters.
+    if (type === "shot_list" && allEntries.length > 0) {
+      const MAX_DESC_CHARS = 120;
+      const EN_STOPWORDS = [" the ", " and ", " of ", " with "];
+      let langViolations = 0;
+      let truncations = 0;
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      for (const e of allEntries as any[]) {
+        const desc: string = e.description || "";
+        if (desc.length > MAX_DESC_CHARS) {
+          e.description = desc.slice(0, MAX_DESC_CHARS).replace(/[,;]?\s+\S+$/, "").trim();
+          truncations++;
+        }
+        if (
+          (project.settings.language === "de" || project.settings.language === "auto") &&
+          EN_STOPWORDS.some((w) => desc.includes(w))
+        ) {
+          langViolations++;
+        }
+      }
+      if (truncations > 0) console.log(`[validate] Shot list: truncated ${truncations} descriptions > ${MAX_DESC_CHARS} chars`);
+      if (langViolations > 0) console.warn(`[validate] Shot list: ${langViolations} descriptions contain English stopwords — expected German output`);
+    }
+
+    // Validation Test 3: merge shot splits without a visible cut.
+    // If the previous shot ran for < 5 s AND the next shot's description shares ≥2 significant
+    // words, it is almost certainly a spurious split — extend the previous shot and discard the new one.
+    if (type === "shot_list" && allEntries.length > 0) {
+      const SPLIT_WINDOW_SEC = 5;
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const stitchedSplits: any[] = [];
+      let splitMerges = 0;
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      for (const e of allEntries as any[]) {
+        const prev = stitchedSplits[stitchedSplits.length - 1];
+        if (prev) {
+          const prevDurationSec = tcToSec(e.tcIn) - tcToSec(prev.tcIn);
+          if (prevDurationSec < SPLIT_WINDOW_SEC && shotDescriptionsSimilar(prev.description, e.description)) {
+            if (tcToSec(e.tcOut) > tcToSec(prev.tcOut)) prev.tcOut = e.tcOut;
+            splitMerges++;
+            console.log(`[validate] Merged split-without-cut at ${e.tcIn}: "${e.description}"`);
+            continue;
+          }
+        }
+        stitchedSplits.push(e);
+      }
+      if (splitMerges > 0) {
+        console.log(`[validate] Shot list: merged ${splitMerges} split-without-cut entries`);
+        allEntries.length = 0;
+        allEntries.push(...stitchedSplits);
+      }
+    }
+
+    // Validation Test 4: micro-shot spam — more than 3 shots under 2 s per 60-s window.
+    // Indicates compression-artefact detection rather than genuine editorial cuts.
+    // Shortest shots are removed first within each offending window.
+    if (type === "shot_list" && allEntries.length > 0) {
+      const SPAM_WINDOW_SEC = 60;
+      const SPAM_SHORT_SEC = 2;
+      const SPAM_MAX_PER_WINDOW = 3;
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const keepFlags = new Map<any, boolean>(allEntries.map((e) => [e, true]));
+      for (let winStart = 0; winStart < durationSec; winStart += SPAM_WINDOW_SEC) {
+        const winEnd = winStart + SPAM_WINDOW_SEC;
+        const shortInWindow = allEntries.filter(
+          (e) =>
+            keepFlags.get(e) &&
+            tcToSec(e.tcOut) - tcToSec(e.tcIn) < SPAM_SHORT_SEC &&
+            tcToSec(e.tcIn) >= winStart &&
+            tcToSec(e.tcIn) < winEnd
+        );
+        if (shortInWindow.length > SPAM_MAX_PER_WINDOW) {
+          const sorted = [...shortInWindow].sort(
+            (a, b) => (tcToSec(a.tcOut) - tcToSec(a.tcIn)) - (tcToSec(b.tcOut) - tcToSec(b.tcIn))
+          );
+          for (const e of sorted.slice(0, shortInWindow.length - SPAM_MAX_PER_WINDOW)) {
+            keepFlags.set(e, false);
+          }
+        }
+      }
+      const beforeSpam = allEntries.length;
+      const spamFiltered = allEntries.filter((e) => keepFlags.get(e));
+      if (spamFiltered.length < beforeSpam) {
+        console.log(`[validate] Shot list: removed ${beforeSpam - spamFiltered.length} micro-shot spam entries (>${SPAM_MAX_PER_WINDOW} sub-${SPAM_SHORT_SEC}s shots per ${SPAM_WINDOW_SEC}s)`);
+        allEntries.length = 0;
+        allEntries.push(...spamFiltered);
       }
     }
 
@@ -687,6 +935,516 @@ export async function runAnalysis(type: AnalysisType) {
   }
 }
 
+/**
+ * Two-pass shot list: detect cuts first, then describe each shot from its middle frame.
+ *
+ * WHY THIS EXISTS:
+ * The single-pass `runAnalysis("shot_list")` asks Gemini to detect cuts AND describe
+ * each shot in one big call. On dense documentary footage this produces too many
+ * shots (vs human Gold) and triggers MAX_TOKENS hallucination loops. Eight
+ * post-processing passes (boundary stitch, micro-shot filter, spam filter, etc.)
+ * try to clean up the output, but the underlying problem is the prompt is too broad.
+ *
+ * THIS APPROACH:
+ *   Phase 1 — Boundary detection. Ask Gemini for cut timecodes ONLY (no descriptions).
+ *             Small output → no token-budget hallucinations. Chunked the same way as
+ *             the single-pass flow for long videos.
+ *   Phase 2 — Build intervals from cut timecodes + duration.
+ *   Phase 3 — Extract the middle frame of each interval via the browser's <video>
+ *             + canvas (reuses `extractFrame()` from frames.ts).
+ *   Phase 4 — Describe each frame with a per-image Gemini call. Each call sees ONE
+ *             still and is asked for description, sceneType, cameraMovement, notes.
+ *             Parallel with concurrency cap of 4.
+ *
+ * The post-processing passes from `runAnalysis()` are DELIBERATELY NOT applied here —
+ * if the source output is clean, the bandaids are not needed.
+ */
+export async function runShotListTwoPass() {
+  const state = _store.getState();
+  const project = state.project;
+  const apiKey = state.apiKey;
+  let videoBlobUrl = state.videoBlobUrl;
+
+  // Dispatch: if an EDL is attached, use the frame-EXACT EDL path instead of
+  // pixel-based cut detection. The EDL gives gold cuts + source provenance.
+  if (project?.edl && Array.isArray(project.edl.events) && project.edl.events.length > 0) {
+    return runShotListFromEdl();
+  }
+
+  if (!project?.videoFile?.geminiFileUri || !apiKey) return;
+
+  // The local blob URL may not be attached yet if the user clicks Generate
+  // immediately after a page load (the IndexedDB restore in hydrateStore() runs
+  // async and can take ~1s for a multi-GB file). Rather than fail with a
+  // re-upload prompt, try an on-demand restore from the blob cache first.
+  if (!videoBlobUrl) {
+    try {
+      const { loadVideoBlob } = await import("./blobStore");
+      const blob = await loadVideoBlob(project.videoFile.geminiFileUri);
+      if (blob) {
+        const url = URL.createObjectURL(blob);
+        _store.setVideoBlobUrl(url);
+        videoBlobUrl = url;
+        console.log("[two-pass] Restored local video blob on demand from IndexedDB");
+      }
+    } catch (e) {
+      console.warn("[two-pass] On-demand blob restore failed:", e);
+    }
+  }
+
+  if (!videoBlobUrl) {
+    _analysisErrors.set(
+      "shot_list",
+      "Two-pass needs the local video file, which isn't cached in this browser. Re-upload the file once to enable it (future refreshes won't need re-uploading)."
+    );
+    notifyAnalysis();
+    return;
+  }
+  if (_analyzing.get("shot_list")) return;
+
+  _analyzing.set("shot_list", true);
+  _analysisErrors.set("shot_list", "");
+  _analysisProgress.delete("shot_list");
+  clearDeliverable("shot_list"); // reset counter at run start
+  notifyAnalysis();
+
+  const frameRate = project.settings.frameRate;
+  const dropFrame = project.settings.dropFrame;
+  const language = project.settings.language;
+  const durationSec = project.videoFile.duration || 0;
+  const totalMin = durationSec / 60;
+
+  const abortController = new AbortController();
+  _abortControllers.set("shot_list", abortController);
+
+  const t0 = Date.now();
+
+  try {
+    const { GoogleGenAI } = await import("@google/genai");
+    const ai = new GoogleGenAI({ apiKey });
+
+    // ─── Phase 1: Deterministic cut detection (client-side frame diff) ──────
+    // Replaces the former Gemini boundary-detection pass. Gemini recovered only
+    // ~31% of real cuts (it pattern-completes timecodes rather than "seeing"
+    // cuts); a histogram frame-diff scan reaches ~89% recall / ~87% precision.
+    // See src/lib/sceneDetect.ts for the validated algorithm and parameters.
+    console.log(`[two-pass] Phase 1: scanning video for cuts (frame-diff)`);
+    let rawCuts: number[] = [];
+    try {
+      rawCuts = await detectScenes(videoBlobUrl, {
+        frameRate,
+        onProgress: (frac) => {
+          // Phase 1 occupies the first half of the progress indicator.
+          _analysisProgress.set("shot_list", { currentMin: frac * totalMin * 0.5, totalMin });
+          notifyAnalysis();
+        },
+        signal: abortController.signal,
+      });
+    } catch (err) {
+      console.error("[two-pass] Scene detection failed:", err);
+      _analysisErrors.set(
+        "shot_list",
+        err instanceof Error ? `Cut detection failed: ${err.message}` : "Cut detection failed"
+      );
+      return;
+    }
+
+    if (_cancelFlags.get("shot_list") || abortController.signal.aborted) return;
+
+    // Keep only cuts strictly inside the clip, sorted, de-duplicated within 0.5 s.
+    const sortedCuts = rawCuts.filter((s) => s > 0 && s < durationSec).sort((a, b) => a - b);
+    const MIN_GAP_SEC = 0.5;
+    const dedupedCuts: number[] = [];
+    for (const cut of sortedCuts) {
+      if (dedupedCuts.length === 0 || cut - dedupedCuts[dedupedCuts.length - 1] >= MIN_GAP_SEC) {
+        dedupedCuts.push(cut);
+      }
+    }
+    console.log(`[two-pass] Phase 1 done: ${rawCuts.length} raw cuts → ${dedupedCuts.length} deduped`);
+
+    if (_cancelFlags.get("shot_list") || abortController.signal.aborted) return;
+
+    // ─── Phase 2: Build intervals from cuts + duration ──────────────────────
+    const boundariesSec = [0, ...dedupedCuts, durationSec];
+    const intervals: { tcIn: string; tcOut: string; midpointSec: number; durationTC: string }[] = [];
+    for (let i = 0; i < boundariesSec.length - 1; i++) {
+      const startSec = boundariesSec[i];
+      const endSec = boundariesSec[i + 1];
+      if (endSec - startSec < 8 / frameRate) continue; // Skip < 8-frame slivers
+      const tcIn = secondsToTimecode(startSec, frameRate, dropFrame);
+      const tcOut = secondsToTimecode(endSec, frameRate, dropFrame);
+      intervals.push({
+        tcIn,
+        tcOut,
+        midpointSec: (startSec + endSec) / 2,
+        durationTC: subtractTimecodes(tcOut, tcIn, frameRate, dropFrame),
+      });
+    }
+    console.log(`[two-pass] Phase 2: built ${intervals.length} shot intervals`);
+
+    if (intervals.length === 0) {
+      console.warn("[two-pass] No intervals produced — nothing to describe");
+      applyResults("shot_list", [], null, frameRate, dropFrame);
+      return;
+    }
+
+    // ─── Phase 3: Extract middle frame for each interval ─────────────────────
+    // extractFrame() has an internal semaphore (MAX_CONCURRENT = 4 in frames.ts).
+    // We fire all promises at once — the semaphore handles concurrency.
+    // This is roughly 4× faster than the previous sequential `await` loop.
+    const { extractFrame } = await import("./frames");
+    const frameDataUrls: (string | null)[] = new Array(intervals.length).fill(null);
+
+    console.log(`[two-pass] Phase 3: extracting ${intervals.length} middle frames (semaphore-capped at 4)`);
+    let phase3Completed = 0;
+    await Promise.allSettled(
+      intervals.map(async (iv, idx) => {
+        if (_cancelFlags.get("shot_list") || abortController.signal.aborted) return;
+        const midpointTC = secondsToTimecode(iv.midpointSec, frameRate, dropFrame);
+        try {
+          frameDataUrls[idx] = await extractFrame(videoBlobUrl, midpointTC, frameRate);
+        } catch (err) {
+          console.warn(`[two-pass] Frame extraction failed for shot ${idx + 1} at ${midpointTC}:`, err);
+        } finally {
+          phase3Completed++;
+          // Phase 3 progress takes the [50%, 60%] band of the timeline indicator.
+          _analysisProgress.set("shot_list", {
+            currentMin: totalMin * (0.5 + 0.1 * (phase3Completed / intervals.length)),
+            totalMin,
+          });
+          notifyAnalysis();
+        }
+      })
+    );
+
+    if (_cancelFlags.get("shot_list") || abortController.signal.aborted) return;
+
+    // ─── Phase 4: Describe each frame ─────────────────────────────────────────
+    const describePrompt = SHOT_DESCRIBE_PROMPT(language);
+    type ShotDesc = { description: string; sceneType: string; cameraMovement: string; notes: string };
+    const descriptions: (ShotDesc | null)[] = new Array(intervals.length).fill(null);
+    let phase4Completed = 0;
+
+    const describeOne = async (idx: number): Promise<void> => {
+      if (_cancelFlags.get("shot_list") || abortController.signal.aborted) return;
+      const dataUrl = frameDataUrls[idx];
+      if (!dataUrl) {
+        descriptions[idx] = { description: "", sceneType: "", cameraMovement: "Static", notes: "[frame missing]" };
+        return;
+      }
+
+      // Strip "data:image/jpeg;base64," prefix
+      const base64 = dataUrl.split(",")[1] ?? "";
+
+      try {
+        const result = await ai.models.generateContent({
+          model: "gemini-2.5-flash",
+          contents: [
+            {
+              role: "user",
+              parts: [
+                { inlineData: { data: base64, mimeType: "image/jpeg" } },
+                { text: describePrompt },
+              ],
+            },
+          ],
+          config: {
+            temperature: 0.1,
+            maxOutputTokens: 1024, // Per-shot response is tiny
+            responseMimeType: "application/json",
+            thinkingConfig: { thinkingBudget: 0 },
+            abortSignal: abortController.signal,
+          },
+        });
+        const responseText = result.text ?? "";
+        if (!responseText.trim()) {
+          descriptions[idx] = { description: "", sceneType: "", cameraMovement: "Static", notes: "" };
+          return;
+        }
+        const parsed = parseJsonResponse(responseText);
+        descriptions[idx] = {
+          description: typeof parsed.description === "string" ? parsed.description.slice(0, 120) : "",
+          sceneType: typeof parsed.sceneType === "string" ? parsed.sceneType : "",
+          cameraMovement: typeof parsed.cameraMovement === "string" ? parsed.cameraMovement : "Static",
+          notes: typeof parsed.notes === "string" ? parsed.notes : "",
+        };
+      } catch (err) {
+        if (abortController.signal.aborted) return;
+        console.warn(`[two-pass] Describe failed for shot ${idx + 1}:`, err);
+        descriptions[idx] = { description: "", sceneType: "", cameraMovement: "Static", notes: "[describe failed]" };
+      }
+    };
+
+    // Concurrency-capped worker pool, mirror of frames.ts MAX_CONCURRENT
+    const CONCURRENT = 4;
+    console.log(`[two-pass] Phase 4: describing ${intervals.length} shots (concurrency=${CONCURRENT})`);
+    let nextIdx = 0;
+    const inFlight = new Set<Promise<void>>();
+    while (nextIdx < intervals.length || inFlight.size > 0) {
+      while (inFlight.size < CONCURRENT && nextIdx < intervals.length) {
+        if (_cancelFlags.get("shot_list") || abortController.signal.aborted) break;
+        const idx = nextIdx++;
+        const p = describeOne(idx).finally(() => {
+          inFlight.delete(p);
+          phase4Completed++;
+          // Phase 4 fills the [60%, 100%] band — linear in completion count to
+          // avoid the jitter you'd see if we used the random midpointSec of
+          // whichever shot happens to finish next under parallel execution.
+          _analysisProgress.set("shot_list", {
+            currentMin: totalMin * (0.6 + 0.4 * (phase4Completed / intervals.length)),
+            totalMin,
+          });
+          notifyAnalysis();
+        });
+        inFlight.add(p);
+      }
+      if (inFlight.size > 0) await Promise.race(inFlight);
+      if (_cancelFlags.get("shot_list") || abortController.signal.aborted) break;
+    }
+    await Promise.all([...inFlight]); // drain remaining
+
+    // ─── Phase 5: Assemble shot list ─────────────────────────────────────────
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const shots: any[] = intervals.map((iv, i) => ({
+      shotNumber: i + 1,
+      tcIn: iv.tcIn,
+      tcOut: iv.tcOut,
+      duration: iv.durationTC,
+      description: descriptions[i]?.description || "",
+      sceneType: descriptions[i]?.sceneType || "",
+      cameraMovement: descriptions[i]?.cameraMovement || "Static",
+      notes: descriptions[i]?.notes || "",
+    }));
+
+    const elapsed = ((Date.now() - t0) / 1000).toFixed(1);
+    console.log(`[two-pass] Complete: ${shots.length} shots in ${elapsed}s`);
+
+    applyResults("shot_list", shots, null, frameRate, dropFrame);
+  } catch (err) {
+    console.error("[two-pass] Error:", err);
+    _analysisErrors.set("shot_list", err instanceof Error ? err.message : "Two-pass analysis failed");
+  } finally {
+    _analyzing.set("shot_list", false);
+    _cancelFlags.delete("shot_list");
+    _abortControllers.delete("shot_list");
+    _analysisProgress.delete("shot_list");
+    notifyAnalysis();
+  }
+}
+
+/**
+ * EDL-driven shot list — frame-EXACT cuts + source provenance from the edit.
+ *
+ * Structure layer (instant, deterministic): one row per EDL event, timecodes
+ * preserved in the EDL's own record base. Description layer: three frames
+ * (in/middle/out) per shot from the cached MP4 → one Gemini call. Enrichment
+ * layer (now): best-effort source from the clip name, flagged pending_db where
+ * uncertain; raw clip + source TC retained for the later footage-DB join.
+ */
+export async function runShotListFromEdl() {
+  const state = _store.getState();
+  const project = state.project;
+  const apiKey = state.apiKey;
+  let videoBlobUrl = state.videoBlobUrl;
+
+  if (!project?.edl || !Array.isArray(project.edl.events) || project.edl.events.length === 0) return;
+  if (_analyzing.get("shot_list")) return;
+
+  const events = project.edl.events as EdlEvent[];
+  // The EDL only encodes drop/non-drop; the rate matches the project's detected
+  // frame rate (FrameRate-typed, required by the timecode helpers).
+  const frameRate = project.settings.frameRate;
+  const dropFrame = project.edl.dropFrame ?? project.settings.dropFrame;
+  const haveVideo = !!videoBlobUrl && !!apiKey;
+
+  // Try to restore the cached blob on-demand if the video is expected but not attached.
+  if (!videoBlobUrl && project.videoFile?.geminiFileUri) {
+    try {
+      const { loadVideoBlob } = await import("./blobStore");
+      const blob = await loadVideoBlob(project.videoFile.geminiFileUri);
+      if (blob) { const url = URL.createObjectURL(blob); _store.setVideoBlobUrl(url); videoBlobUrl = url; }
+    } catch { /* non-fatal — clearance-list mode without descriptions */ }
+  }
+
+  _analyzing.set("shot_list", true);
+  _analysisErrors.set("shot_list", "");
+  _analysisProgress.delete("shot_list");
+  clearDeliverable("shot_list"); // reset counter at run start
+  notifyAnalysis();
+
+  const abortController = new AbortController();
+  _abortControllers.set("shot_list", abortController);
+  const t0 = Date.now();
+
+  try {
+    // ─── Structure: one row per event, EDL record TC preserved ───
+    const startOffsetFrames = edlTcToFrames(project.edl.startTC, frameRate);
+    type Row = {
+      tcIn: string; tcOut: string; duration: string;
+      inSec: number; outSec: number; // MP4-relative (recTC − startOffset)
+      sourceClip: string; sourceInTC: string; sourceOutTC: string;
+      source: string; sourceConfidence: "resolved" | "pending_db"; transition: string;
+      speed?: number;
+    };
+    const rows: Row[] = events.map((e) => {
+      const recInF = edlTcToFrames(e.recInTC, frameRate);
+      const recOutF = edlTcToFrames(e.recOutTC, frameRate);
+      const src = resolveSource(e.clipName);
+      return {
+        tcIn: e.recInTC,
+        tcOut: e.recOutTC,
+        duration: subtractTimecodes(e.recOutTC, e.recInTC, frameRate, dropFrame),
+        inSec: (recInF - startOffsetFrames) / frameRate,
+        outSec: (recOutF - startOffsetFrames) / frameRate,
+        sourceClip: e.clipName || "",
+        sourceInTC: e.srcInTC,
+        sourceOutTC: e.srcOutTC,
+        source: src.source,
+        sourceConfidence: src.confidence,
+        transition: e.transition,
+        speed: e.speed,
+      };
+    });
+    const ramped = rows.filter((r) => r.speed != null && Math.abs(r.speed - 100) > 1).length;
+    if (ramped) console.log(`[edl] ${ramped} speed-ramped shots flagged (slow-mo / reverse / fast)`);
+
+    /** Map an M2 speed % to a human label. 100 = normal (no label). */
+    const speedLabel = (sp: number | undefined): string => {
+      if (sp == null || Math.abs(sp - 100) <= 1) return "";
+      if (sp < 0) return `Reverse (${Math.abs(sp)}%)`;
+      if (sp < 100) return `Slow motion (${sp}%)`;
+      return `Fast motion (${sp}%)`;
+    };
+    console.log(`[edl] Structure: ${rows.length} shots from EDL (base ${project.edl.startTC}, ${frameRate}fps${dropFrame ? " DF" : ""})`);
+
+    // ─── Description: 3 frames (in/mid/out) per shot → one Gemini call ───
+    type Desc = { description: string; sceneType: string; cameraMovement: string; notes: string };
+    const descriptions: (Desc | null)[] = new Array(rows.length).fill(null);
+
+    if (haveVideo && videoBlobUrl) {
+      const { GoogleGenAI } = await import("@google/genai");
+      const ai = new GoogleGenAI({ apiKey });
+      const { extractFrame } = await import("./frames");
+      const describePrompt = SHOT_DESCRIBE_PROMPT(project.settings.language);
+      const durSec = project.videoFile?.duration || Infinity;
+
+      const describeOne = async (idx: number): Promise<void> => {
+        if (_cancelFlags.get("shot_list") || abortController.signal.aborted) return;
+        const r = rows[idx];
+        // Three sample points within the shot, clamped inside the clip.
+        const span = Math.max(0, r.outSec - r.inSec);
+        const pts = [r.inSec + Math.min(0.05, span * 0.1), (r.inSec + r.outSec) / 2, r.outSec - Math.min(0.05, span * 0.1)]
+          .map((s) => Math.max(0, Math.min(s, durSec - 0.05)));
+        const uniq = [...new Set(pts.map((s) => Math.round(s * 1000) / 1000))];
+        const frames: string[] = [];
+        for (const s of uniq) {
+          try {
+            const f = await extractFrame(videoBlobUrl!, secondsToTimecode(s, frameRate, dropFrame), frameRate);
+            if (f) frames.push(f);
+          } catch { /* skip this frame */ }
+        }
+        if (frames.length === 0) {
+          descriptions[idx] = { description: "", sceneType: "", cameraMovement: "Static", notes: "[frame missing]" };
+          return;
+        }
+        try {
+          const parts = [
+            ...frames.map((f) => ({ inlineData: { data: f.split(",")[1] ?? "", mimeType: "image/jpeg" } })),
+            { text: describePrompt },
+          ];
+          const result = await ai.models.generateContent({
+            model: "gemini-2.5-flash",
+            contents: [{ role: "user", parts }],
+            config: {
+              temperature: 0.1, maxOutputTokens: 1024, responseMimeType: "application/json",
+              thinkingConfig: { thinkingBudget: 0 }, abortSignal: abortController.signal,
+            },
+          });
+          const parsed = parseJsonResponse(result.text ?? "");
+          descriptions[idx] = {
+            description: typeof parsed.description === "string" ? parsed.description.slice(0, 120) : "",
+            sceneType: typeof parsed.sceneType === "string" ? parsed.sceneType : "",
+            cameraMovement: typeof parsed.cameraMovement === "string" ? parsed.cameraMovement : "Static",
+            notes: typeof parsed.notes === "string" ? parsed.notes : "",
+          };
+        } catch (err) {
+          if (abortController.signal.aborted) return;
+          descriptions[idx] = { description: "", sceneType: "", cameraMovement: "Static", notes: "[describe failed]" };
+        }
+      };
+
+      console.log(`[edl] Description: 3-frame describe for ${rows.length} shots (concurrency=4)`);
+      let done = 0, next = 0;
+      const CONCURRENT = 4;
+      const inFlight = new Set<Promise<void>>();
+      while (next < rows.length || inFlight.size > 0) {
+        while (inFlight.size < CONCURRENT && next < rows.length) {
+          if (_cancelFlags.get("shot_list") || abortController.signal.aborted) break;
+          const idx = next++;
+          const p = describeOne(idx).finally(() => {
+            inFlight.delete(p); done++;
+            const totalMin = (project.videoFile?.duration || 3600) / 60;
+            _analysisProgress.set("shot_list", { currentMin: (done / rows.length) * totalMin, totalMin });
+            notifyAnalysis();
+          });
+          inFlight.add(p);
+        }
+        if (inFlight.size > 0) await Promise.race(inFlight);
+        if (_cancelFlags.get("shot_list") || abortController.signal.aborted) break;
+      }
+      await Promise.all([...inFlight]);
+    } else {
+      console.warn("[edl] No video attached — producing clearance list (cuts + source, no descriptions)");
+    }
+
+    if (_cancelFlags.get("shot_list") || abortController.signal.aborted) return;
+
+    // ─── Assemble ───
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const shots: any[] = rows.map((r, i) => {
+      const sp = speedLabel(r.speed);
+      let cameraMovement = descriptions[i]?.cameraMovement || "Static";
+      let notes = descriptions[i]?.notes || "";
+      if (sp) {
+        notes = notes ? `${notes} · ${sp}` : sp;
+        if (!cameraMovement || cameraMovement === "Static") cameraMovement = sp;
+      }
+      return {
+        shotNumber: i + 1,
+        tcIn: r.tcIn,
+        tcOut: r.tcOut,
+        duration: r.duration,
+        description: descriptions[i]?.description || (haveVideo ? "" : "[video required]"),
+        sceneType: descriptions[i]?.sceneType || "",
+        cameraMovement,
+        notes,
+        sourceClip: r.sourceClip,
+        sourceInTC: r.sourceInTC,
+        sourceOutTC: r.sourceOutTC,
+        source: r.source,
+        sourceConfidence: r.sourceConfidence,
+        transition: r.transition,
+        cutSource: "edl",
+        location: "", // filled by fillLocationsFromGraphics() when location marks exist
+      };
+    });
+
+    console.log(`[edl] Complete: ${shots.length} shots in ${((Date.now() - t0) / 1000).toFixed(1)}s`);
+    applyResults("shot_list", shots, null, frameRate, dropFrame, /* preserveFrames */ true);
+    // Back/forward-fill Location from any graphics location marks already present.
+    fillLocationsFromGraphics();
+  } catch (err) {
+    console.error("[edl] Error:", err);
+    _analysisErrors.set("shot_list", err instanceof Error ? err.message : "EDL shot list failed");
+  } finally {
+    _analyzing.set("shot_list", false);
+    _cancelFlags.delete("shot_list");
+    _abortControllers.delete("shot_list");
+    _analysisProgress.delete("shot_list");
+    notifyAnalysis();
+  }
+}
+
 /** Parse a confidence value to a 0–1 float. Handles both 0.95 and "95%" formats. */
 function parseConfidence(conf: unknown): number {
   if (typeof conf === "number") return conf > 1 ? conf / 100 : conf;
@@ -695,6 +1453,25 @@ function parseConfidence(conf: unknown): number {
     if (!isNaN(n)) return n > 1 ? n / 100 : n;
   }
   return 0;
+}
+
+/**
+ * Returns true if two shot descriptions share enough significant words to be
+ * considered the same scene — used by the split-without-cut merge pass.
+ *
+ * Tune the threshold here:
+ *   shared >= 2  →  loose  (merges when any 2 words > 3 chars match)
+ *   shared >= 3  →  strict (safer for fast-cut sequences with repeated location words)
+ */
+function shotDescriptionsSimilar(a: string, b: string): boolean {
+  // TODO: adjust threshold or logic to match your footage style
+  const sig = (s: string) => new Set(s.toLowerCase().split(/\W+/).filter((w) => w.length > 3));
+  const wa = sig(a);
+  let shared = 0;
+  for (const w of sig(b)) {
+    if (wa.has(w) && ++shared >= 2) return true;
+  }
+  return false;
 }
 
 /** Return true if a TC string has valid minute and second fields (< 60). */
@@ -739,6 +1516,208 @@ function truncateHallucinationLoop(text: string): string {
     }
   }
   return text;
+}
+
+/**
+ * Cross-module enrichment: propagate graphics LOCATION MARKS forward to fill the
+ * Location column on every shot (and append to fauna notes). A location mark
+ * ("HOBART / Tasmania", "POBITORA / India") applies from its timecode until the
+ * next mark. This auto-fills Location — a column we'd otherwise need the footage
+ * DB for — purely from the EDL cut grid + the OCR'd location marks.
+ *
+ * Idempotent and order-independent: called at the end of BOTH the shot and the
+ * graphics generators, so whichever finishes second performs the fill. No-ops if
+ * there are no location marks (never wipes existing data).
+ */
+function fillLocationsFromGraphics() {
+  const project = _store.getState().project;
+  if (!project) return;
+  const fr = project.settings.frameRate;
+  // Normalize a location mark to the COUNTRY (last "/"-segment) to match the house
+  // LOC column: "WET TROPICS / FAR NORTH QUEENSLAND / AUSTRALIA" → "Australia".
+  const toCountry = (content: string): string => {
+    const cleaned = content.replace(/^location\s*mark:\s*/i, "").trim();
+    // Marks separate place levels with "/", newline, OR comma — the country is
+    // the LAST segment: "MIRISSA\nSRI LANKA" → "Sri Lanka", "WET TROPICS / … / AUSTRALIA" → "Australia".
+    const seg = cleaned.split(/[/\n,]/).map((s) => s.trim()).filter(Boolean);
+    const country = seg.length ? seg[seg.length - 1] : cleaned;
+    return country.replace(/\s+/g, " ").split(" ").map((w) => w ? w[0].toUpperCase() + w.slice(1).toLowerCase() : w).join(" ");
+  };
+  const marks = (project.deliverables.graphicsList || [])
+    .filter((g) => g.graphicType === "location_mark" && g.content)
+    .map((g) => ({ sec: timecodeToSeconds(g.tcIn, fr), name: toCountry(g.content) }))
+    .filter((m) => Number.isFinite(m.sec))
+    .sort((a, b) => a.sec - b.sec);
+  if (marks.length === 0) return;
+
+  const locAt = (tc: string): string => {
+    const s = timecodeToSeconds(tc, fr);
+    // Backfill: shots before the first mark inherit the first mark's country.
+    let cur = marks[0].name;
+    for (const m of marks) { if (m.sec <= s + 0.5) cur = m.name; else break; }
+    return cur;
+  };
+
+  const shots = project.deliverables.shotList;
+  if (shots.length > 0) {
+    const updated = shots.map((s) => ({ ...s, location: locAt(s.tcIn) }));
+    _store.updateDeliverables({ shotList: updated });
+    console.log(`[locations] Filled Location on ${updated.filter((s) => s.location).length}/${updated.length} shots from ${marks.length} location marks`);
+  }
+}
+
+// Clip-name patterns that mark a graphics/CGI/title element in the EDL.
+// Camera originals (A###C###, DJI_, P10…, GH#) and archive (T0###_TITLE) never match.
+const GRAPHIC_CLIP_RE = /GFX|DRAFT|ARTWORK|UNTITLED|COMPOSIT|MIXDOWN|SIGNATUR|GRAFIK|\bCGI\b|ANIMAT|RENDER|ANGLE[-_ ]?\d|\bSI[_ ]?\d|CARBON|SCAT[_ ]?\d|\.PSD|\.AI|\.TIF|\.TGA|\.PNG/i;
+
+function classifyGraphicClip(clip: string): "cgi" | "title_card" {
+  const s = clip.toUpperCase();
+  if (s.includes("SIGNATUR") || s.includes("MIXDOWN") || /^TR\s/.test(clip.trim().toUpperCase())) return "title_card";
+  return "cgi";
+}
+
+/** Turn an EDL clip filename into readable graphic content (more accurate than a mid-frame guess). */
+function cleanGraphicContent(clip: string): string {
+  return clip
+    .replace(/\.(NEW|COPY|SYNC)\b.*$/i, "")
+    .replace(/\.(MP4|MOV|PSD|AI|TIF|TGA|PNG|JPE?G)\b.*$/i, "")
+    .replace(/[_]+/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+/**
+ * Graphics via EDL-targeting (see docs spec + deep analysis).
+ *  - CGI / Graphic Log: EDL graphic clips → frame-EXACT, content from the clip
+ *    name (more accurate than a mid-frame Gemini guess — e.g. "CT SCAN",
+ *    "CARBON SINK"). All 12 gold CGI are EDL clips.
+ *  - Lower-thirds / location marks / inserts: NOT separate clips in the picture
+ *    EDL, so read by OCR — but CHUNKED across the timeline so attention never
+ *    decays (the old single whole-video call died after ~33 min). Timecodes are
+ *    snapped into the EDL record base and de-duplicated (kills the phantom host
+ *    supers).
+ */
+export async function runGraphicsFromEdl() {
+  const state = _store.getState();
+  const project = state.project;
+  const apiKey = state.apiKey;
+  if (!project?.edl || !Array.isArray(project.edl.events) || !apiKey) return;
+  if (_analyzing.get("graphics_list")) return;
+
+  const events = project.edl.events as EdlEvent[];
+  const frameRate = project.settings.frameRate;
+  const dropFrame = project.edl.dropFrame ?? project.settings.dropFrame;
+  const language = project.settings.language;
+  const baseSec = edlTcToFrames(project.edl.startTC, frameRate) / frameRate; // 10h record base
+  const durationSec = project.videoFile?.duration || 0;
+
+  _analyzing.set("graphics_list", true);
+  _analysisErrors.set("graphics_list", "");
+  _analysisProgress.delete("graphics_list");
+  clearDeliverable("graphics_list");
+  notifyAnalysis();
+  const abortController = new AbortController();
+  _abortControllers.set("graphics_list", abortController);
+
+  try {
+    const { GoogleGenAI } = await import("@google/genai");
+    const ai = new GoogleGenAI({ apiKey });
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const entries: any[] = [];
+
+    // ─── Part A: CGI / titles from EDL clips (frame-exact, deterministic) ───
+    const gfx = events.filter((e) => e.clipName && GRAPHIC_CLIP_RE.test(e.clipName));
+    for (const e of gfx) {
+      entries.push({
+        tcIn: e.recInTC, tcOut: e.recOutTC,
+        graphicType: classifyGraphicClip(e.clipName!),
+        content: cleanGraphicContent(e.clipName!),
+        position: "full frame", notes: "From EDL (frame-exact)",
+      });
+    }
+    console.log(`[edl-gfx] Part A: ${gfx.length} CGI/title clips from EDL`);
+
+    // ─── Part B: lower-thirds / locations / inserts via CHUNKED OCR ───
+    if (project.videoFile?.geminiFileUri && durationSec > 0) {
+      const totalMin = durationSec / 60;
+      const chunks: { startMin: number; endMin: number }[] = [];
+      if (durationSec > CHUNK_THRESHOLD_SEC) {
+        for (let st = 0; st < totalMin; st += CHUNK_MINUTES)
+          chunks.push({ startMin: st, endMin: Math.min(st + CHUNK_MINUTES + OVERLAP_SEC / 60, totalMin) });
+      } else chunks.push({ startMin: 0, endMin: totalMin });
+
+      const extraNote = "\nDo NOT log a lower-third for the narrator/host/presenter (the recurring main person). Only log a lower-third the FIRST time a NEW interviewed person appears. Never repeat the same lower-third or location mark.";
+      const ocr: { sec: number; tcOutSec: number; type: string; content: string; position: string; notes: string }[] = [];
+
+      let chunkDone = 0;
+      for (const ch of chunks) {
+        if (_cancelFlags.get("graphics_list") || abortController.signal.aborted) break;
+        const chunkOff = Math.floor(ch.startMin * 60);
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const vp: any = { fileData: { fileUri: project.videoFile.geminiFileUri, mimeType: project.videoFile.type } };
+        if (chunks.length > 1) vp.videoMetadata = { startOffset: `${chunkOff}s`, endOffset: `${Math.floor(ch.endMin * 60)}s` };
+        try {
+          const res = await ai.models.generateContent({
+            model: "gemini-2.5-flash",
+            contents: [{ role: "user", parts: [vp, { text: GRAPHICS_LIST_PROMPT(frameRate, dropFrame, language) + extraNote }] }],
+            config: { temperature: 0.1, maxOutputTokens: 8192, responseMimeType: "application/json", thinkingConfig: { thinkingBudget: 0 }, mediaResolution: MediaResolution.MEDIA_RESOLUTION_LOW, abortSignal: abortController.signal },
+          });
+          const parsed = parseJsonResponse(res.text ?? "");
+          for (const g of (Array.isArray(parsed.entries) ? parsed.entries : [])) {
+            const gt = String(g.graphicType || "");
+            if (!["lower_third", "location_mark", "title_card", "credit"].includes(gt)) continue;
+            const inS = timecodeToSeconds(String(g.tcIn || ""), frameRate);
+            const outS = timecodeToSeconds(String(g.tcOut || g.tcIn || ""), frameRate);
+            const abs = (chunkOff > 0 && inS < chunkOff) ? inS + chunkOff : inS;
+            const absOut = (chunkOff > 0 && outS < chunkOff) ? outS + chunkOff : outS;
+            ocr.push({ sec: abs, tcOutSec: Math.max(absOut, abs + 1), type: gt, content: String(g.content || ""), position: String(g.position || ""), notes: String(g.notes || "") });
+          }
+        } catch (err) {
+          if (abortController.signal.aborted) break;
+          console.warn(`[edl-gfx] OCR chunk ${ch.startMin}-${ch.endMin}min failed:`, err);
+        }
+        chunkDone++;
+        _analysisProgress.set("graphics_list", { currentMin: (chunkDone / chunks.length) * totalMin, totalMin });
+        notifyAnalysis();
+      }
+
+      // Dedup: lower_third/title/credit → first per normalized content;
+      // location_mark → re-entry allowed if >120s since the last identical mark.
+      ocr.sort((a, b) => a.sec - b.sec);
+      const norm = (s: string) => s.toLowerCase().replace(/[^a-z0-9]+/g, " ").trim();
+      const lastSeen = new Map<string, number>();
+      let kept = 0;
+      for (const o of ocr) {
+        if (!norm(o.content)) continue;
+        const key = `${o.type}|${norm(o.content)}`;
+        const prev = lastSeen.get(key);
+        const allowRe = o.type === "location_mark" ? 120 : Infinity;
+        if (prev != null && (o.sec - prev) < allowRe) continue;
+        lastSeen.set(key, o.sec);
+        entries.push({
+          tcIn: secondsToTimecode(o.sec + baseSec, frameRate, dropFrame),
+          tcOut: secondsToTimecode(o.tcOutSec + baseSec, frameRate, dropFrame),
+          graphicType: o.type, content: o.content, position: o.position, notes: o.notes,
+        });
+        kept++;
+      }
+      console.log(`[edl-gfx] Part B: ${kept} lower-thirds/locations from ${chunks.length} OCR chunks (deduped from ${ocr.length})`);
+    }
+
+    entries.sort((a, b) => timecodeToSeconds(a.tcIn, frameRate) - timecodeToSeconds(b.tcIn, frameRate));
+    console.log(`[edl-gfx] Complete: ${entries.length} graphics`);
+    applyResults("graphics_list", entries, null, frameRate, dropFrame, /* preserveFrames */ true);
+    fillLocationsFromGraphics();
+  } catch (err) {
+    console.error("[edl-gfx] Error:", err);
+    _analysisErrors.set("graphics_list", err instanceof Error ? err.message : "EDL graphics failed");
+  } finally {
+    _analyzing.set("graphics_list", false);
+    _cancelFlags.delete("graphics_list");
+    _abortControllers.delete("graphics_list");
+    _analysisProgress.delete("graphics_list");
+    notifyAnalysis();
+  }
 }
 
 /** Parse a TC string to whole seconds (ignores frames). Returns 0 for unrecognised input. */
@@ -789,17 +1768,18 @@ function shiftTc(tc: string, offsetSec: number, fps: number, dropFrame: boolean)
 }
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
-function applyResults(type: AnalysisType, entries: any[], directParsed: any, frameRate: FrameRate, dropFrame: boolean) {
+function applyResults(type: AnalysisType, entries: any[], directParsed: any, frameRate: FrameRate, dropFrame: boolean, preserveFrames: boolean = false) {
   const normalizeTimecode = (tc: unknown): string => {
     if (typeof tc !== "string") return dropFrame ? "00:00:00;00" : "00:00:00:00";
     const sep = dropFrame ? ";" : ":";
     const cleaned = tc.replace(/[;]/g, ":");
     const parts = cleaned.split(":");
     if (parts.length === 4) {
-      // Zero the frame component — Gemini cannot detect frame-accurate cut points.
-      // It outputs artificial fixed offsets (:08, :16, :24) that are meaningless.
-      // Showing :00 is cleaner and more honest than a spurious frame number.
-      return `${parts[0].padStart(2,"0")}:${parts[1].padStart(2,"0")}:${parts[2].padStart(2,"0")}${sep}00`;
+      // EDL-sourced timecodes are frame-EXACT (gold) — preserve the frame field.
+      // For AI-derived cuts we zero it: Gemini can't detect frame-accurate cuts
+      // and emits artificial offsets (:08, :16, :24), so :00 is more honest.
+      const ff = preserveFrames ? parts[3].padStart(2, "0") : "00";
+      return `${parts[0].padStart(2,"0")}:${parts[1].padStart(2,"0")}:${parts[2].padStart(2,"0")}${sep}${ff}`;
     }
     if (parts.length === 3) {
       const first = parseInt(parts[0], 10);
@@ -816,14 +1796,27 @@ function applyResults(type: AnalysisType, entries: any[], directParsed: any, fra
     return dropFrame ? "00:00:00;00" : "00:00:00:00";
   };
 
+  // X1 — unify timecode base. AI modules (dialogue/talent/fauna) emit 0-based
+  // video timecodes; when an EDL is attached, shift them into the EDL's record
+  // base (e.g. 10:00:00:00) so every module is consistent with the EDL-sourced
+  // shots/graphics. EDL paths pass preserveFrames=true and are already in-base,
+  // so they are NOT shifted. Position fields only — never duration (a delta).
+  const proj = _store.getState().project;
+  const baseOffsetSec = (!preserveFrames && proj?.edl)
+    ? edlTcToFrames(proj.edl.startTC, frameRate) / frameRate
+    : 0;
+  const shiftPos = (tc: string): string =>
+    baseOffsetSec ? secondsToTimecode(timecodeToSeconds(tc, frameRate) + baseOffsetSec, frameRate, dropFrame) : tc;
+
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const normalizeEntry = (e: any) => {
     const r = { ...e };
-    for (const key of ["tcIn", "tcOut", "duration", "firstAppearance"]) {
-      if (key in r) r[key] = normalizeTimecode(r[key]);
+    for (const key of ["tcIn", "tcOut", "firstAppearance"]) {
+      if (key in r) r[key] = shiftPos(normalizeTimecode(r[key])); // position → shift to EDL base
     }
+    if ("duration" in r) r.duration = normalizeTimecode(r.duration); // delta → never shift
     if (Array.isArray(r.appearances)) {
-      r.appearances = r.appearances.map((tc: unknown) => normalizeTimecode(tc));
+      r.appearances = r.appearances.map((tc: unknown) => shiftPos(normalizeTimecode(tc)));
     }
     return r;
   };
@@ -857,11 +1850,33 @@ function applyResults(type: AnalysisType, entries: any[], directParsed: any, fra
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const addIds = (items: any[]) => {
-    const deduped = dedupeRepetitions(items);
+    // EDL-sourced shot lists are a faithful 1:1 mirror of the timeline — never
+    // collapse "repetitive" rows (a montage of similar shots is real, and the
+    // anti-hallucination dedupe would silently drop real cuts and break parity).
+    const deduped = preserveFrames ? items : dedupeRepetitions(items);
     if (deduped.length < items.length) {
       console.warn(`[analyze] Removed ${items.length - deduped.length} repetitive hallucinated entries`);
     }
     return deduped.map((e, i) => ({ ...normalizeEntry(e), id: crypto.randomUUID(), shotNumber: i + 1 }));
+  };
+
+  // D1 — normalize speaker labels: collapse a short name to a longer one ONLY when
+  // it is an unambiguous prefix/substring of exactly one fuller speaker present
+  // (e.g. "ASHA" → "ASHA DE VOS"). Ambiguous cases ("SCOTT" when both SCOTT
+  // CARVER and SCOTT BURNETT exist) are left untouched.
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const normalizeSpeakers = (items: any[]): any[] => {
+    const names = [...new Set(items.map((e) => String(e.speaker || "").trim()).filter(Boolean))];
+    const map = new Map<string, string>();
+    for (const short of names) {
+      if (short === "NARRATOR" || short.length < 3) continue;
+      const fuller = names.filter((n) => n !== short && n.length > short.length &&
+        n.toUpperCase().includes(short.toUpperCase()));
+      if (fuller.length === 1) map.set(short, fuller[0]); // unambiguous only
+    }
+    if (map.size === 0) return items;
+    console.log(`[analyze] Normalized speaker labels: ${[...map].map(([a, b]) => `${a}→${b}`).join(", ")}`);
+    return items.map((e) => map.has(String(e.speaker || "").trim()) ? { ...e, speaker: map.get(e.speaker.trim()) } : e);
   };
 
   switch (type) {
@@ -869,7 +1884,7 @@ function applyResults(type: AnalysisType, entries: any[], directParsed: any, fra
       _store.updateDeliverables({ shotList: addIds(entries) });
       break;
     case "dialogue_list":
-      _store.updateDeliverables({ dialogueList: addIds(entries) });
+      _store.updateDeliverables({ dialogueList: normalizeSpeakers(addIds(entries)) });
       break;
     case "graphics_list":
       _store.updateDeliverables({ graphicsList: addIds(entries) });
@@ -914,6 +1929,97 @@ export function resetUploadState() {
   notifyUpload();
 }
 
+/**
+ * Detect the frame rate of an uploaded video by sampling decoded frames.
+ *
+ * Uses `requestVideoFrameCallback` — fires once per decoded frame with a precise
+ * mediaTime. We sample N frames, take the median inter-frame delta, and snap to
+ * the nearest broadcast-standard rate (24/25/29.97/30/50/59.94/60/23.976).
+ *
+ * Falls back to 25 fps if detection is unsupported (older browsers) or fails.
+ *
+ * NOTE: requestVideoFrameCallback is supported in Chrome 87+, Safari 15.4+,
+ * Firefox 132+. All modern targets.
+ */
+async function detectFrameRate(file: File): Promise<FrameRate> {
+  const STANDARD_RATES: FrameRate[] = [23.976, 24, 25, 29.97, 30, 50, 59.94, 60];
+  const FALLBACK: FrameRate = 25;
+  const SAMPLE_COUNT = 12;
+
+  return new Promise<FrameRate>((resolve) => {
+    const video = document.createElement("video");
+    video.muted = true;
+    video.playsInline = true;
+    video.preload = "auto";
+
+    const url = URL.createObjectURL(file);
+    let resolved = false;
+    const finish = (rate: FrameRate, reason: string) => {
+      if (resolved) return;
+      resolved = true;
+      console.log(`[upload] Frame rate detected: ${rate} fps (${reason})`);
+      URL.revokeObjectURL(url);
+      video.removeAttribute("src");
+      video.load();
+      resolve(rate);
+    };
+
+    // Safety timeout — if detection stalls, fall back.
+    const timeoutId = setTimeout(() => finish(FALLBACK, "detection timed out"), 8000);
+
+    // Feature-detect requestVideoFrameCallback
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const videoEl: any = video;
+    if (typeof videoEl.requestVideoFrameCallback !== "function") {
+      clearTimeout(timeoutId);
+      finish(FALLBACK, "requestVideoFrameCallback unsupported");
+      return;
+    }
+
+    video.onerror = () => {
+      clearTimeout(timeoutId);
+      finish(FALLBACK, "video load error");
+    };
+
+    video.onloadedmetadata = () => {
+      // Start ~1 second in to avoid intro splash variability
+      video.currentTime = Math.min(1, (video.duration || 0) * 0.05);
+    };
+
+    video.onseeked = () => {
+      const timestamps: number[] = [];
+      const onFrame = (_: DOMHighResTimeStamp, metadata: { mediaTime: number }) => {
+        timestamps.push(metadata.mediaTime);
+        if (timestamps.length >= SAMPLE_COUNT) {
+          video.pause();
+          clearTimeout(timeoutId);
+          // Median inter-frame delta
+          const deltas: number[] = [];
+          for (let i = 1; i < timestamps.length; i++) {
+            const d = timestamps[i] - timestamps[i - 1];
+            if (d > 0) deltas.push(d);
+          }
+          if (deltas.length === 0) return finish(FALLBACK, "no inter-frame deltas captured");
+          deltas.sort((a, b) => a - b);
+          const median = deltas[Math.floor(deltas.length / 2)];
+          const rawFps = 1 / median;
+          // Snap to nearest standard rate
+          const snapped = STANDARD_RATES.reduce((best, r) =>
+            Math.abs(r - rawFps) < Math.abs(best - rawFps) ? r : best
+          );
+          finish(snapped, `raw=${rawFps.toFixed(3)}fps → snapped`);
+          return;
+        }
+        videoEl.requestVideoFrameCallback(onFrame);
+      };
+      videoEl.requestVideoFrameCallback(onFrame);
+      video.play().catch(() => finish(FALLBACK, "playback blocked"));
+    };
+
+    video.src = url;
+  });
+}
+
 export async function runUpload(file: File, onDone?: () => void) {
   const state = _store.getState();
   const project = state.project;
@@ -938,7 +2044,7 @@ export async function runUpload(file: File, onDone?: () => void) {
   try {
     const mimeType = file.type || "video/mp4";
 
-    // Step 0: Extract video duration using browser <video> element
+    // Step 0a: Extract video duration using browser <video> element
     let videoDuration: number | null = null;
     try {
       videoDuration = await new Promise<number>((resolve, reject) => {
@@ -957,6 +2063,16 @@ export async function runUpload(file: File, onDone?: () => void) {
       console.log(`[upload] Video duration: ${videoDuration?.toFixed(1)}s (${((videoDuration || 0) / 60).toFixed(1)} min)`);
     } catch (e) {
       console.warn("[upload] Could not detect video duration:", e);
+    }
+
+    // Step 0b: Auto-detect frame rate. This replaces the manual selector in
+    // SettingsPanel — the detected rate becomes the project's framerate for
+    // all timecode math downstream. Falls back to 25 if detection fails.
+    let detectedFrameRate: FrameRate = project.settings.frameRate; // current as fallback
+    try {
+      detectedFrameRate = await detectFrameRate(file);
+    } catch (e) {
+      console.warn("[upload] Frame rate detection failed, keeping current:", e);
     }
 
     // Step 1: Upload directly to Gemini Files API from the browser.
@@ -1000,16 +2116,21 @@ export async function runUpload(file: File, onDone?: () => void) {
     _uploadState = { status: "done", progress: 100, error: null };
     notifyUpload();
 
-    // New upload — wipe any previous analysis so stale results are never shown
+    // New upload — wipe any previous analysis so stale results are never shown.
+    // The detected frame rate becomes the project's framerate for all timecode math.
     _store.updateProject({
       videoFile: {
         name: file.name,
         size: file.size,
         type: mimeType,
         duration: videoDuration,
-        frameRate: project.settings.frameRate,
+        frameRate: detectedFrameRate,
         uploadedAt: new Date().toISOString(),
         geminiFileUri: geminiFile.uri!,
+      },
+      settings: {
+        ...project.settings,
+        frameRate: detectedFrameRate,
       },
       status: "completed",
       deliverables: {
@@ -1021,6 +2142,21 @@ export async function runUpload(file: File, onDone?: () => void) {
         faunaLog: [],
       },
     });
+
+    // Persist the raw bytes to IndexedDB so a page refresh doesn't force a
+    // re-upload. Keyed by the Gemini URI: hydrateStore() will fetch this and
+    // reattach a fresh Blob URL in ~1 second next time the page loads. Best-
+    // effort — failure here is non-fatal (the in-memory blob URL still works
+    // for THIS session).
+    try {
+      const { saveVideoBlob } = await import("./blobStore");
+      await saveVideoBlob(geminiFile.uri!, file, {
+        name: file.name, type: mimeType, size: file.size,
+      });
+      console.log(`[upload] Cached ${(file.size/1024/1024).toFixed(1)}MB blob to IndexedDB for fast restore`);
+    } catch (e) {
+      console.warn("[upload] Could not cache blob for restore (non-fatal):", e);
+    }
 
     onDone?.();
   } catch (err) {

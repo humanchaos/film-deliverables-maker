@@ -13,7 +13,7 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "NEVER v3 — Film Deliverables Generator",
+  title: "Film Deliverables Maker",
   description:
     "AI-powered broadcast deliverables generator for post-production professionals. Shot lists, dialogue lists, graphics logs, synopses, and more.",
 };

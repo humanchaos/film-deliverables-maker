@@ -1,7 +1,7 @@
-# NEVER v2 — Claude Code Rules
+# Film Deliverables Maker — Claude Code Rules
 
 ## Project
-Next.js app deployed to never-v3.vercel.app. All AI calls run client-side via Gemini Files API directly from the browser. No server functions. No Vercel timeouts.
+Next.js app deployed to film-deliverables-maker.vercel.app. Vercel project: film-deliverables-maker. GitHub: humanchaos/film-deliverables-maker. All AI calls run client-side via Gemini Files API directly from the browser. No server functions. No Vercel timeouts.
 
 ## Build & Deploy
 cd ~/Downloads/Projects/Claude\ Rebuilds\ Never/never-v2

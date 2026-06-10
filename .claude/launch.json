@@ -3,7 +3,7 @@
   "configurations": [
     {
       "name": "never-v2",
-      "runtimeExecutable": "npm",
+      "runtimeExecutable": "/usr/local/bin/npm",
       "runtimeArgs": ["run", "dev"],
       "port": 3000
     }
