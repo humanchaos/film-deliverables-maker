@@ -299,7 +299,7 @@ function getPrompt(
 }
 
 // Types that produce many entries per minute and need chunking for long videos
-const CHUNKED_TYPES: AnalysisType[] = ["shot_list", "dialogue_list", "graphics_list", "fauna_log"];
+const CHUNKED_TYPES: AnalysisType[] = ["shot_list", "dialogue_list", "graphics_list", "fauna_log", "talent_bios"];
 // Chunk size in minutes — 5 min prevents MAX_TOKENS hallucination on dense documentary footage.
 // At 10 min, Gemini fills the tail of its output budget with repetitive identical shots.
 const CHUNK_MINUTES = 5;
@@ -694,7 +694,10 @@ export async function runAnalysis(type: AnalysisType) {
 
     // Deduplicate entries at chunk boundaries — Gemini may include a shot at
     // the exact boundary timestamp in BOTH adjacent chunks.
-    if (needsChunking && allEntries.length > 0) {
+    // Skipped for talent_bios: bios have no tcIn/tcOut, so the composite key would be
+    // identical ("|") for every person and collapse the list to one entry. Bios get
+    // their own name-based merge below.
+    if (needsChunking && type !== "talent_bios" && allEntries.length > 0) {
       const before = allEntries.length;
       const seen = new Set<string>();
       const deduped: typeof allEntries = [];
@@ -715,7 +718,7 @@ export async function runAnalysis(type: AnalysisType) {
     // whether a new entry's tcIn lands within 3s of a nominal boundary AND the previous
     // entry already covers that time. When detected, extend the previous entry's tcOut
     // (if the new entry reaches further) and discard the duplicate.
-    if (needsChunking && allEntries.length > 0) {
+    if (needsChunking && type !== "talent_bios" && allEntries.length > 0) {
       const BOUNDARY_TOLERANCE_SEC = 3;
       const chunkPeriodSec = CHUNK_MINUTES * 60;
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -740,6 +743,91 @@ export async function runAnalysis(type: AnalysisType) {
         allEntries.length = 0;
         allEntries.push(...stitched);
       }
+    }
+
+    // For dialogue, drop chunk-overlap duplicates: the 20s overlap means lines near a
+    // chunk boundary get transcribed by BOTH adjacent chunks, with slightly different
+    // TCs (so the exact tcIn|tcOut dedup misses them) and sometimes different speaker
+    // labels. Match on normalized TEXT within 30s — but only when the later entry sits
+    // in the overlap re-scan zone just after a nominal chunk boundary, so legitimate
+    // quick repeats elsewhere (e.g. "Blow!" shouted five times) are never touched.
+    if (needsChunking && type === "dialogue_list" && allEntries.length > 0) {
+      const chunkPeriodSec = CHUNK_MINUTES * 60;
+      const ZONE_SEC = OVERLAP_SEC + 15;
+      const normText = (s: unknown) => String(s ?? "").toLowerCase().replace(/[^a-z0-9]+/g, " ").trim();
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const sorted = [...(allEntries as any[])].sort((a, b) => tcToSec(a.tcIn ?? "") - tcToSec(b.tcIn ?? ""));
+      const lastByText = new Map<string, number>();
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const deduped: any[] = [];
+      for (const e of sorted) {
+        const key = normText(e.dialogue);
+        const sec = tcToSec(e.tcIn ?? "");
+        const prevSec = lastByText.get(key);
+        const inZone = sec % chunkPeriodSec < ZONE_SEC;
+        if (key && prevSec != null && sec - prevSec <= 30 && inZone) continue;
+        if (key) lastByText.set(key, sec);
+        deduped.push(e);
+      }
+      if (deduped.length < allEntries.length) {
+        console.log(`[analyze] Dialogue: dropped ${allEntries.length - deduped.length} chunk-overlap duplicate lines`);
+        allEntries.length = 0;
+        allEntries.push(...deduped);
+      }
+    }
+
+    // For talent bios, merge people across chunks by normalized name. Every chunk
+    // re-reports the people it sees, so the same person appears once per chunk:
+    // keep the earliest firstAppearance, the longest bio, and the union of appearances.
+    if (type === "talent_bios" && allEntries.length > 0) {
+      const normName = (s: unknown) => String(s ?? "").toLowerCase().replace(/[^a-z0-9]+/g, " ").trim();
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const byName = new Map<string, any>();
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      for (const e of allEntries as any[]) {
+        const key = normName(e.name);
+        if (!key) continue;
+        const existing = byName.get(key);
+        if (!existing) {
+          byName.set(key, { ...e, appearances: Array.isArray(e.appearances) ? [...e.appearances] : [] });
+          continue;
+        }
+        if (typeof e.firstAppearance === "string" &&
+            (typeof existing.firstAppearance !== "string" || tcToSec(e.firstAppearance) < tcToSec(existing.firstAppearance))) {
+          existing.firstAppearance = e.firstAppearance;
+        }
+        if (String(e.bio ?? "").length > String(existing.bio ?? "").length) existing.bio = e.bio;
+        if (String(e.role ?? "").length > String(existing.role ?? "").length) existing.role = e.role;
+        if (Array.isArray(e.appearances)) existing.appearances.push(...e.appearances);
+      }
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const merged = [...byName.values()].map((p: any) => {
+        const uniq = [...new Set((p.appearances as unknown[]).filter((t) => typeof t === "string"))] as string[];
+        uniq.sort((a, b) => tcToSec(a) - tcToSec(b));
+        return { ...p, appearances: uniq.slice(0, 10) };
+      });
+      merged.sort((a, b) => tcToSec(String(a.firstAppearance ?? "")) - tcToSec(String(b.firstAppearance ?? "")));
+      console.log(`[analyze] Talent: merged ${allEntries.length} per-chunk sightings into ${merged.length} people`);
+      allEntries.length = 0;
+      allEntries.push(...merged);
+    }
+
+    // For fauna, repair zero/negative-duration sightings (tcOut <= tcIn): extend tcOut
+    // to tcIn + 1s. These come from montage shots where the model pins both TCs to the
+    // same frame — the sighting is usually real, the duration is not.
+    if (type === "fauna_log" && allEntries.length > 0) {
+      let repaired = 0;
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      for (const e of allEntries as any[]) {
+        if (typeof e.tcIn !== "string" || !e.tcIn) continue;
+        const inS = tcToSec(e.tcIn);
+        const outS = typeof e.tcOut === "string" && e.tcOut ? tcToSec(e.tcOut) : -1;
+        if (outS <= inS) {
+          e.tcOut = shiftTc(e.tcIn, 1, frameRate, dropFrame);
+          repaired++;
+        }
+      }
+      if (repaired) console.log(`[analyze] Fauna: repaired ${repaired} zero-duration sightings (tcOut extended to tcIn + 1s)`);
     }
 
     // For fauna, keep only the first appearance of each species regardless of chunking.
@@ -1752,20 +1840,46 @@ export async function runGraphicsFromEdl() {
             console.warn(`[edl-gfx] OCR chunk ${ch.startMin}-${ch.endMin}min: empty response (finishReason=${finishReason}), skipping`);
           } else {
             const parsed = parseJsonResponse(rawText);
+            const chEndSec = Math.floor(ch.endMin * 60);
+            const winLen = chEndSec - chunkOff;
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+            const cands: { gt: string; inS: number; outS: number; g: any }[] = [];
             for (const g of (Array.isArray(parsed.entries) ? parsed.entries : [])) {
               const gt = String(g.graphicType || "");
               if (!["lower_third", "location_mark", "title_card", "credit"].includes(gt)) continue;
-              // Prompt guarantees chunk-relative TCs (TC_INSTRUCTIONS: "first frame = 00:00:00:00").
-              // Always apply the chunk offset unconditionally — no threshold check — to avoid
-              // misplacing graphics in the overlap zone where chunk-relative TCs exceed chunkOff.
-              // shiftTc() works in integer frame counts for DF-accurate shifting.
-              const rawIn  = String(g.tcIn  || "00:00:00:00");
-              const rawOut = String(g.tcOut || g.tcIn || "00:00:00:00");
-              const shiftedIn  = chunkOff > 0 ? shiftTc(rawIn,  chunkOff, frameRate, dropFrame) : rawIn;
-              const shiftedOut = chunkOff > 0 ? shiftTc(rawOut, chunkOff, frameRate, dropFrame) : rawOut;
-              const abs    = timecodeToSeconds(shiftedIn,  frameRate);
-              const absOut = timecodeToSeconds(shiftedOut, frameRate);
-              ocr.push({ sec: abs, tcOutSec: Math.max(absOut, abs + 1), type: gt, content: String(g.content || ""), position: String(g.position || ""), notes: String(g.notes || "") });
+              cands.push({
+                gt,
+                inS: timecodeToSeconds(String(g.tcIn || "00:00:00:00"), frameRate),
+                outS: timecodeToSeconds(String(g.tcOut || g.tcIn || "00:00:00:00"), frameRate),
+                g,
+              });
+            }
+            // The prompt guarantees chunk-relative TCs, but the model sometimes returns
+            // absolute ones anyway. Majority-vote across the chunk's entries (same fix as
+            // the whole-video path): under which interpretation do more entries land
+            // inside this chunk's window? A wrong guess double-shifts the chunk +chunkOff,
+            // which is how SOUTHERN OCEAN graphics ended up 35 min past end of program.
+            let useOffset = chunkOff;
+            if (chunkOff > 0 && cands.length > 0) {
+              let relVotes = 0, absVotes = 0;
+              for (const c of cands) {
+                if (c.inS >= 0 && c.inS <= winLen + 5) relVotes++;
+                if (c.inS >= chunkOff - 5 && c.inS <= chEndSec + 5) absVotes++;
+              }
+              if (absVotes > relVotes) {
+                console.warn(`[edl-gfx] OCR chunk ${ch.startMin}-${ch.endMin}min: TCs vote absolute (${absVotes} vs ${relVotes}) — skipping offset`);
+                useOffset = 0;
+              }
+            }
+            for (const c of cands) {
+              const abs = c.inS + useOffset;
+              const absOut = c.outS + useOffset;
+              // Hard validation: must land inside this chunk's window and the program.
+              if (abs < chunkOff - 5 || abs > chEndSec + 5 || abs > durationSec + 2) {
+                console.warn(`[edl-gfx] Dropped out-of-window graphic "${String(c.g.content || "").slice(0, 40)}" at +${Math.round(abs)}s (chunk ${chunkOff}-${chEndSec}s, video ${Math.round(durationSec)}s)`);
+                continue;
+              }
+              ocr.push({ sec: abs, tcOutSec: Math.max(absOut, abs + 1), type: c.gt, content: String(c.g.content || ""), position: String(c.g.position || ""), notes: String(c.g.notes || "") });
             }
           }
         } catch (err) {

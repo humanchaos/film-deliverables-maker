@@ -127,6 +127,12 @@ Two complementary passes run after all chunks complete:
   - **Fauna recall (`FAUNA_LOG_PROMPT` + confidence floor):** removed the "max 4 species per 60 s → stop and reconsider" rule (killed montage sequences — the T0189 teaser shows wombat/whale/cassowary/rhino in <60 s); added systematic full-clip coverage block + genus-level-fallback instruction; confidence floor 0.85 → 0.80. T0189 baseline: 12 species logged, krill missing entirely.
   - **Dialogue prompt clip bounds:** `DIALOGUE_LIST_PROMPT` now takes `clipEndTC` and embeds the same CLIP BOUNDS block as fauna/talent prompts ("timecodes are positions in the clip, NOT wall-clock times").
 
+- [x] **v0.9.1 — Fixes from second T0189 validation run (v0.9.0 output vs gold):**
+  - **Graphics Part B out-of-window leak (`runGraphicsFromEdl`):** v0.9.0's majority-vote + window validation only covered the whole-video path; Part B OCR chunks could still double-shift absolute TCs (+chunkOff) → SOUTHERN OCEAN / HOBART / SO KAWAGUCHI graphics landed at 11:12–11:14, 35 min past end of program. Same majority vote per chunk + hard window/duration validation now applied in Part B.
+  - **Talent bios chunked (8 → 2 regression root cause):** `talent_bios` was a single whole-video call → attention decay silently dropped the middle of the film (non-deterministic; previous run got lucky with 8 people). Now in `CHUNKED_TYPES` with name-based cross-chunk merge (earliest firstAppearance, longest bio/role, union of appearances capped at 10). tcIn-keyed boundary dedup/stitch passes skip talent (bios have no tcIn — the composite key would collapse all people into one).
+  - **Dialogue chunk-overlap duplicates:** lines near chunk boundaries transcribed by both adjacent chunks with ±few-second TCs and sometimes different speaker labels. Normalized-text dedup within 30 s, restricted to the overlap re-scan zone just after nominal boundaries (legit quick repeats like "Blow!" ×5 untouched).
+  - **Fauna zero-duration repair:** montage sightings with tcOut ≤ tcIn get tcOut extended to tcIn + 1 s (sighting is real, duration wasn't).
+
 ### Validation sweep vs gold (v0.8.x)
 Full per-module comparison against handmade gold deliverables:
 
