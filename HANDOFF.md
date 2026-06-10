@@ -135,6 +135,8 @@ Two complementary passes run after all chunks complete:
 
 - [x] **v0.9.2 — Talent bios precision fix (third T0189 run):** v0.9.1 chunking fixed recall (all named experts back) but flooded the list to 32 entries — every chunk re-described crew/crowd with different generic labels ("Unidentified Male (Beard)", boat-crew, Ig-Nobel audience) that never merged, plus bare-first-name duplicates ("Scott" vs "Scott Burnett"). Fixed two ways: (1) `TALENT_BIOS_PROMPT` rewritten to NAMED-ONLY — only people whose real first+last name is established on screen/in narration; explicitly excludes unidentified/background/crew/audience and bare first names. (2) Post-merge filter in `processWindow` drops any entry whose name hits a generic-descriptor regex or lacks a first+last token before the name-merge runs. Expected: ~32 → ~7-8 clean named people matching the gold talent list. Graphics `11:xx` leak and dialogue TC collapse both confirmed FIXED in this run.
 
+- [x] **v0.9.3 — Fauna recall pass:** (1) fauna chunks now run at DEFAULT media resolution instead of `MEDIA_RESOLUTION_LOW` — 64 tok/frame was killing species ID on brief montage shots, small animals (bats, krill, insects) and partial views (sloth arm, tiger flank); a 5-min chunk at default res is ~77k input tokens, well within budget. Other types keep LOW. (2) `FAUNA_LOG_PROMPT` coverage rules extended: brief 1–2 s shots count, identifiable partial views count (feet/fluke/fin/arm), handled/captive/lab/deceased animals count (context in Notes; only taxidermy/sculpture/illustration excluded). T0189 known misses this targets: tiger, bats, pangolin, sloth, elephant, sperm whale.
+
 ### Validation sweep vs gold (v0.8.x)
 Full per-module comparison against handmade gold deliverables:
 

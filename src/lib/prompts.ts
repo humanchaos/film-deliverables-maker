@@ -404,8 +404,10 @@ CLIP BOUNDS:
 
 COVERAGE — be systematic and complete:
 - Scan the ENTIRE clip from start to end. Do not stop logging partway through; species appearing late in the clip matter as much as early ones.
-- A wildlife documentary typically features MANY species. Every animal that is a focal subject of a shot must be logged — including small subjects (insects, krill, fish) when the camera clearly features them.
-- Fast-cut montage sequences (e.g. an opening teaser) legitimately show many different species within a minute — log each clearly identifiable focal species, one entry per species.
+- A wildlife documentary typically features MANY species. Every animal that is a focal subject of a shot must be logged — including small subjects (insects, krill, fish, bats) when the camera clearly features them.
+- BRIEF SHOTS COUNT: a species that is the clear subject of even a 1–2 second shot must be logged. Fast-cut montage sequences (e.g. an opening teaser, a poaching/conservation montage) legitimately show many different species within a minute — log each clearly identifiable focal species, one entry per species.
+- PARTIAL VIEWS COUNT: if only part of the animal is shown in close-up (feet, tail, fluke, fin, arm, head) but the species is identifiable from that view, log it.
+- HANDLED / CAPTIVE / DECEASED ANIMALS COUNT: animals in laboratories, aquariums, sanctuaries, being held, examined, or dissected are still species on screen — log them and state the context in Notes (e.g. "specimen examined in lab", "captive, aquarium"). Only exclude taxidermy, sculptures, and illustrations.
 
 CONFIDENCE STANDARD — only log what you can clearly see:
 - Only include a species if you are at least 80% confident from what is visually on screen.

@@ -494,7 +494,11 @@ export async function runAnalysis(type: AnalysisType) {
             maxOutputTokens: 32768,
             responseMimeType: "application/json",
             thinkingConfig: { thinkingBudget: 0 },
-            mediaResolution: MediaResolution.MEDIA_RESOLUTION_LOW,
+            // Fauna needs detail: species ID from brief montage shots, small animals
+            // (bats, insects, krill) and partial views (a sloth arm, tiger flank) fails
+            // at LOW resolution (64 tok/frame). Default res on a 5-min chunk is ~77k
+            // input tokens — well within budget, and recall measurably improves.
+            ...(type === "fauna_log" ? {} : { mediaResolution: MediaResolution.MEDIA_RESOLUTION_LOW }),
             abortSignal: abortController.signal,
           },
         });
