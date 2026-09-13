@@ -1,9 +1,9 @@
-# HANDOFF — Never v3 Film Deliverables Generator
+# HANDOFF — Film Deliverables Maker
 
 ## 1. Architecture
 
 ### Overview
-A Next.js app (never-v2 repo, deployed as **film-deliverables-maker.vercel.app**) that generates broadcast deliverables (shot lists, dialogue, graphics, synopses, talent bios, fauna log) from an uploaded video file and optional EDL.
+A Next.js app (film-deliverables-maker repo, deployed as **film-deliverables-maker.vercel.app**) that generates broadcast deliverables (shot lists, dialogue, graphics, synopses, talent bios, fauna log) from an uploaded video file and optional EDL.
 
 **Two analysis paths now coexist:**
 - **Whole-video Gemini path** (original) — all AI work client-side in the browser via Gemini Files API, chunked for videos > 25 min. No server functions.
@@ -180,7 +180,7 @@ Full per-module comparison against handmade gold deliverables:
 
 - **Live URL:** https://film-deliverables-maker.vercel.app
 - **Version source:** `next.config.ts` → `NEXT_PUBLIC_APP_VERSION`. Do not set this in `.env.local` — `next.config.ts` takes precedence and is what Vercel builds use. Note: `package.json` still says `0.3.0` and is decoupled from the displayed version. Bumping it is held as a small cleanup.
-- **Deploy command:** `cd ~/Downloads/Projects/Claude\ Rebuilds\ Never/never-v2 && PATH="/usr/local/bin:$PATH" npx vercel --prod`
+- **Deploy command:** `cd ~/Downloads/Projects/Claude\ Rebuilds\ Never/film-deliverables-maker && PATH="/usr/local/bin:$PATH" npx vercel --prod` (legacy — prefer `git push` → Vercel auto-deploy)
 - **Vercel deploy history caveat:** all v0.4 → v0.8.6 production deploys to date used the Vercel CLI (`source: cli`, `gitDirty: 1` in deployment metadata) on top of the `95a35615` commit on `main`. The v0.5 → v0.8.6 source has been recovered to branch `v0.8.6-recovery` on GitHub. Future deploys should ideally land via `git push` → Vercel auto-deploy from a tracked branch instead of dirty CLI deploys.
 - **Localhost issue:** Turbopack can't find `node` in the system PATH (macOS system processes don't see `/usr/local/bin`). Fix: `sudo ln -sf /usr/local/bin/node /usr/bin/node` then restart dev server. Until fixed, use production for testing.
 

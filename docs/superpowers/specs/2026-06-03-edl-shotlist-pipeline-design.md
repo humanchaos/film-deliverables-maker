@@ -2,7 +2,7 @@
 
 **Date:** 2026-06-03
 **Status:** Approved (design), pending implementation plan
-**App:** Film Deliverables Maker (`never-v2`, deployed `film-deliverables-maker.vercel.app`)
+**App:** Film Deliverables Maker (`film-deliverables-maker`, deployed `film-deliverables-maker.vercel.app`)
 
 ## Problem
 

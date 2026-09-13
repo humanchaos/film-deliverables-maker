@@ -4,7 +4,7 @@
 Next.js app deployed to film-deliverables-maker.vercel.app. Vercel project: film-deliverables-maker. GitHub: humanchaos/film-deliverables-maker. All AI calls run client-side via Gemini Files API directly from the browser. No server functions. No Vercel timeouts.
 
 ## Build & Deploy
-cd ~/Downloads/Projects/Claude\ Rebuilds\ Never/never-v2
+cd ~/Downloads/Projects/Claude\ Rebuilds\ Never/film-deliverables-maker
 npm run build
 npx vercel --prod
 
