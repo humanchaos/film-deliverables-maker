@@ -4,7 +4,6 @@ import { useState, useCallback, useRef, useEffect } from "react";
 import { ActivePanel } from "@/app/page";
 import { useStore, store, runUpload, getUploadState, subscribeUpload, resetUploadState, type UploadState } from "@/lib/store";
 import { formatFileSize } from "@/lib/timecode";
-import { FrameRate, FRAME_RATES, Broadcaster, BROADCASTERS } from "@/lib/types";
 
 interface UploadPanelProps {
   onNavigate: (panel: ActivePanel) => void;
@@ -74,15 +73,6 @@ export default function UploadPanel({ onNavigate }: UploadPanelProps) {
     });
   };
 
-  const updateSetting = <K extends keyof NonNullable<typeof project>["settings"]>(
-    key: K,
-    value: NonNullable<typeof project>["settings"][K]
-  ) => {
-    if (!project) return;
-    store.updateProject({
-      settings: { ...project.settings, [key]: value },
-    });
-  };
 
   if (!project) {
     return (
@@ -108,92 +98,6 @@ export default function UploadPanel({ onNavigate }: UploadPanelProps) {
         <p className="text-muted text-sm mt-1">MP4, MOV, AVI, WebM &middot; Up to 2GB</p>
       </div>
 
-      {/* Project Settings */}
-      <div className="bg-surface border border-border rounded-xl p-6 mb-6 animate-slide-up">
-        <h3 className="text-[10px] font-semibold text-muted uppercase tracking-[0.2em] mb-4">Project Settings</h3>
-        <div className="grid grid-cols-2 gap-4">
-          <div>
-            <label className="block text-xs text-muted mb-1.5">Frame Rate</label>
-            <select
-              value={project.settings.frameRate}
-              onChange={(e) => updateSetting("frameRate", parseFloat(e.target.value) as FrameRate)}
-              className="w-full px-3 py-2 bg-background border border-border rounded-lg text-sm text-foreground focus:outline-none focus:border-accent"
-            >
-              {FRAME_RATES.map((fr) => (
-                <option key={fr} value={fr}>{fr} fps</option>
-              ))}
-            </select>
-          </div>
-          <div>
-            <label className="block text-xs text-muted mb-1.5">Broadcaster</label>
-            <select
-              value={project.settings.broadcaster}
-              onChange={(e) => updateSetting("broadcaster", e.target.value as Broadcaster)}
-              className="w-full px-3 py-2 bg-background border border-border rounded-lg text-sm text-foreground focus:outline-none focus:border-accent"
-            >
-              {BROADCASTERS.map((b) => (
-                <option key={b} value={b}>{b}</option>
-              ))}
-            </select>
-          </div>
-          <div>
-            <label className="block text-xs text-muted mb-1.5">Timecode Mode</label>
-            <div className="flex gap-2">
-              <button
-                onClick={() => updateSetting("dropFrame", false)}
-                className={`flex-1 px-3 py-2 rounded-lg text-sm font-medium border transition-colors ${
-                  !project.settings.dropFrame
-                    ? "bg-accent/10 border-accent/30 text-accent-light"
-                    : "bg-background border-border text-muted hover:text-foreground"
-                }`}
-              >
-                NDF
-              </button>
-              <button
-                onClick={() => updateSetting("dropFrame", true)}
-                className={`flex-1 px-3 py-2 rounded-lg text-sm font-medium border transition-colors ${
-                  project.settings.dropFrame
-                    ? "bg-accent/10 border-accent/30 text-accent-light"
-                    : "bg-background border-border text-muted hover:text-foreground"
-                }`}
-              >
-                DF
-              </button>
-            </div>
-          </div>
-          <div>
-            <label className="block text-xs text-muted mb-1.5">Output Language</label>
-            <select
-              value={project.settings.language}
-              onChange={(e) => updateSetting("language", e.target.value)}
-              className="w-full px-3 py-2 bg-background border border-border rounded-lg text-sm text-foreground focus:outline-none focus:border-accent"
-            >
-              <option value="auto">Auto-detect (match clip language)</option>
-              <option value="en">English</option>
-              <option value="de">Deutsch</option>
-              <option value="fr">Français</option>
-              <option value="es">Español</option>
-              <option value="it">Italiano</option>
-              <option value="pt">Português</option>
-              <option value="nl">Nederlands</option>
-              <option value="sv">Svenska</option>
-              <option value="da">Dansk</option>
-              <option value="no">Norsk</option>
-              <option value="fi">Suomi</option>
-              <option value="pl">Polski</option>
-              <option value="cs">Čeština</option>
-              <option value="tr">Türkçe</option>
-              <option value="ru">Русский</option>
-              <option value="ja">日本語</option>
-              <option value="zh">中文</option>
-              <option value="ko">한국어</option>
-              <option value="ar">العربية</option>
-              <option value="hi">हिन्दी</option>
-            </select>
-            <p className="text-[10px] text-muted mt-1">Auto-detect outputs in the same language as the clip</p>
-          </div>
-        </div>
-      </div>
 
       {/* Upload Zone */}
       <div

@@ -34,12 +34,145 @@ STOP WHEN DONE — DO NOT LOOP:
 - It is better to return a short accurate list than a long list padded with repeated or invented entries.
 `;
 
+/**
+ * Two-pass shot list — Phase 1: boundary detection only.
+ * Asks Gemini for nothing but cut timecodes. Output is small (~10–100 entries
+ * even on long videos), so MAX_TOKENS hallucination loops cannot occur.
+ */
+/**
+ * Optional time-range note injected when retrying without videoMetadata offsets.
+ * Without videoMetadata, Gemini sees the full video — this restricts the returned cuts
+ * to the specific segment the caller wants.
+ */
+export const BOUNDARY_RANGE_NOTE = (startSec: number, endSec: number, dropFrame: boolean) => {
+  const fmt = (s: number) => {
+    const h = Math.floor(s / 3600).toString().padStart(2, "0");
+    const m = Math.floor((s % 3600) / 60).toString().padStart(2, "0");
+    const sec = Math.floor(s % 60).toString().padStart(2, "0");
+    return `${h}:${m}:${sec}${dropFrame ? ";" : ":"}00`;
+  };
+  return `ANALYSE ONLY the segment between ${fmt(startSec)} and ${fmt(endSec)} (relative to video start).
+Return ONLY timecodes within this range — timecodes outside it are incorrect.`;
+};
+
+export const BOUNDARY_DETECTION_PROMPT = (frameRate: FrameRate, dropFrame: boolean, rangeNote?: string) => `
+You are an expert assistant editor scanning a video clip for editorial cut points.
+
+YOUR ONLY JOB: Return the timecodes where editorial cuts occur. Do NOT describe shots. Do NOT identify framing or movement. ONLY timecodes.
+
+WHAT COUNTS AS A CUT:
+A cut is an instantaneous frame-to-frame change to a different camera setup — a different angle, position, focal length, or subject.
+
+WHAT DOES NOT COUNT AS A CUT (DO NOT log these):
+- Camera movement within a continuous take: pans, tilts, zooms, dolly moves, handheld drift
+- Reframing or scale changes without a hard cut
+- Subject movement within the same setup
+- Gradual transitions (dissolves, fades, wipes): count the whole transition as a single cut at its midpoint, or no cut at all if it is purely stylistic
+- Compression artefacts, single-frame flashes, glitches
+
+CONTINUITY BIAS:
+When uncertain whether a cut occurred, prefer NO cut. Fewer, well-defined cuts are preferred over many false positives.
+Once a shot has been running for more than 5 seconds, require clear and unambiguous visual evidence before declaring a new cut.
+
+MINIMUM SHOT LENGTH: 8 frames. Do NOT log cuts that would create shots shorter than 8 frames.
+
+TIMECODE FORMAT:
+- Frame rate: ${frameRate} fps
+- Format: ${dropFrame ? "Drop-Frame (HH:MM:SS;FF)" : "Non-Drop-Frame (HH:MM:SS:FF)"}
+- All timecodes MUST be relative to the START of the provided video clip. The first frame of the clip is 00:00:00${dropFrame ? ";" : ":"}00.
+
+DO NOT include 00:00:00${dropFrame ? ";" : ":"}00 (it is the implied start of shot 1).
+DO NOT include the very last frame (it is the implied end of the last shot).
+Only include the timecodes BETWEEN shots — i.e. the first frame of shot 2, shot 3, etc.
+
+CRITICAL — NO COUNTING OR INVENTED CUTS:
+If you cannot find real editorial cuts in a segment, return an empty "cuts" array — this is the correct and expected answer.
+NEVER generate timecodes at regular intervals (every 1 s, every 2 s, every 4 s, etc.) unless each one is a verified, frame-accurate editorial cut.
+A short, accurate list is always better than a long, invented one. When uncertain, omit the entry.
+
+${rangeNote ?? ""}
+
+Return ONLY valid JSON in this exact format:
+{
+  "cuts": [
+    "00:00:05${dropFrame ? ";" : ":"}12",
+    "00:00:18${dropFrame ? ";" : ":"}03",
+    "00:00:42${dropFrame ? ";" : ":"}00"
+  ]
+}
+`;
+
+/**
+ * Two-pass shot list — Phase 2: describe a single still frame.
+ * Takes the MIDDLE frame of one shot and asks Gemini for the editor-label
+ * fields (description, sceneType, cameraMovement, notes). Per-shot,
+ * one-image call — no video context, no hallucination room.
+ */
+export const SHOT_DESCRIBE_PROMPT = (language: string) => `
+You are an expert assistant editor labeling a single shot from a documentary.
+
+You are looking at one to three frames from ONE shot of a longer film. When multiple frames are given they are the START, MIDDLE and END of the same shot, in order — use them together to judge the camera movement and the main action as it unfolds (e.g. someone jumping, an animal moving through frame). Describe THIS ONE shot based ONLY on what is visible across these frames. Do NOT describe them as separate shots.
+
+DESCRIPTION FIELD — BROADCAST SHORTHAND (this is how professional shot lists read):
+- Format: "SIZE; subject + action" using a leading shot-size abbreviation, semicolon-separated, terse.
+- Start with the shot-size abbreviation: WS (wide), MS (medium), MCU (medium close-up), CU (close-up), ECU (extreme close-up), Aerial, Insert, Two-Shot, POV. Use two if apt (e.g. "Aerial; WS").
+- Then the subject and ONE main action/state, telegraphic style — drop articles where natural.
+- Maximum ~10 words / 80 characters. Be brief, like an editor's note, NOT a sentence.
+- Do NOT invent objects, actions, or PROPER NAMES of people/places. If a person's name is not shown on screen, describe them generically ("man with beard", "researcher").
+- Static or slowly evolving scenes should be described plainly — do NOT fabricate movement or detail.
+- Examples (match this register exactly):
+    "WS; ship in arctic waves"
+    "CU; hand poking scat with a stick"
+    "Aerial; car driving through forest"
+    "MS; man with beard looking through binoculars"
+    "ECU; segmented object on wet surface"
+
+SCENE TYPE — the full shot-size name (structured column): e.g. "Wide Shot", "Medium Shot", "Medium Close-Up", "Close-Up", "Extreme Close-Up", "Aerial", "Insert", "Two-Shot", "POV". Must agree with the abbreviation you used in the description.
+
+CAMERA MOVEMENT (movement only):
+You are looking at a still frame, so movement is harder to determine from a single image. Default to "Static".
+Only mark movement when there is clear visual evidence in this still:
+- Motion blur on background while subject is sharp → likely a tracking shot or pan
+- Significant motion blur throughout → likely handheld or rapid camera move
+- Top-down framing or unusual angle suggesting aerial → "Aerial" or "Drone"
+- Tilted horizon → handheld or Dutch angle
+Conservative defaults: "Static", "Handheld", "Aerial", "Pan", "Tilt", "Dolly", "Zoom", "Tracking".
+
+NOTES (max 80 characters): Lighting, weather, time of day, mood, archival/B-roll character — anything that does not belong in the other fields.
+
+${LANG_INSTRUCTION(language)}
+
+Return ONLY valid JSON in this exact format:
+{
+  "description": "WS; ship in arctic waves",
+  "sceneType": "Wide Shot",
+  "cameraMovement": "Static",
+  "notes": "Overcast, cold tones"
+}
+`;
+
 export const SHOT_LIST_PROMPT = (frameRate: FrameRate, dropFrame: boolean, language: string) => `
 You are an expert assistant editor creating a broadcast-standard shot list.
 
-Analyze this video and create a detailed shot list logging every camera cut.
+Analyze this video and log each distinct camera shot.
 
-IMPORTANT: Each shot must be at least 8 frames long. Do NOT create entries for momentary flashes, single frames, or sub-second cuts — these are compression artefacts, not real editorial shots. If you are unsure whether a cut is real, merge it with the adjacent shot.
+CONTINUITY RULE — ASSUME CONTINUATION:
+Your default assumption is that the current shot is still running. Only start a new shot entry when you see a clear editorial cut — an instantaneous frame change to a different camera setup.
+Do NOT create a new shot for:
+- Camera movement within a continuous take (pan, tilt, zoom, handheld drift)
+- Reframing or scale changes without a cut
+- Subject movement within the same setup
+- Gradual transitions or dissolves (log these as a single shot)
+When uncertain whether a cut occurred, extend the current shot rather than creating a new entry.
+Once a shot has been running for more than 5 seconds, require clear and unambiguous visual evidence of a cut before ending it.
+Fewer, well-defined shots are preferred over many fragmented ones.
+
+MINIMUM SHOT LENGTH: Each shot must be at least 8 frames. Do NOT log momentary flashes, single frames, or sub-second cuts — these are compression artefacts, not editorial shots.
+
+DESCRIBE ONLY WHAT IS VISIBLE:
+- Do not invent objects, people, or actions that are not clearly on screen.
+- Static or slowly evolving scenes should be described faithfully as such — do not add movement or novelty to avoid repetition.
+- If a scene continues largely unchanged, it is one shot. Log it once.
 
 ${TC_INSTRUCTIONS(frameRate, dropFrame)}
 ${LANG_INSTRUCTION(language)}
@@ -49,7 +182,7 @@ For each shot, provide:
 2. TC In (timecode of the first frame)
 3. TC Out (timecode of the last frame)
 4. Duration (TC Out - TC In)
-5. Description (what is visible on screen — subject, action, and setting, max 25 words). CRITICAL: do NOT put shot size, framing, or camera movement language in the description. Those belong exclusively in sceneType and cameraMovement.
+5. Description — editorial label format ONLY. Structure: [location] + [primary subject] + [action or state]. Hard rules: max 20 words / 120 characters; one main action per shot; do NOT list secondary details; reuse exact wording when scene is visually similar. CRITICAL: do NOT put shot size, framing, or camera movement in description — those fields are sceneType and cameraMovement.
 6. Scene Type — framing/shot size ONLY (e.g., "Wide Shot", "Close-Up", "Medium Shot", "Aerial", "Insert", "B-Roll", "Interview", "Extreme Close-Up", etc.)
 7. Camera Movement — movement ONLY (e.g., "Static", "Pan Left", "Pan Right", "Tilt Up", "Tilt Down", "Dolly In", "Handheld", "Drone", "Tracking", "Zoom In", etc.)
 8. Notes (any relevant notes about the shot)
@@ -113,20 +246,23 @@ Return ONLY valid JSON:
 export const GRAPHICS_LIST_PROMPT = (frameRate: FrameRate, dropFrame: boolean, language: string) => `
 You are an expert assistant editor creating a broadcast-standard graphics log.
 
-Analyze this video and log ONLY production graphics — designed, composed text elements that are part of the film's visual language.
+Analyze this video and log ONLY production graphics — designed, composed elements that are part of the film's visual language.
 
-LOG these graphic types:
-- Lower thirds / chyrons: name and title supers identifying a person on screen (e.g. "Dr. Jane Smith / Marine Biologist")
-- Title cards: film title, chapter titles, section headings, location cards, time/date stamps
-- Credits: opening or closing credit sequences
-- Info-graphics: maps, statistics, diagrams, or factual text overlays
-- Logos and watermarks: network bugs, production company logos
-- Any other deliberately designed text element that is NOT dialogue
+⚠️ CRITICAL — IGNORE THE BURNED-IN TIMECODE (BITC):
+This master may have a burned-in timecode: a small HH:MM:SS:FF (or HH:MM:SS;FF) counter — usually white text in a corner — that INCREMENTS EVERY SINGLE FRAME. This is a technical overlay, NOT a production graphic. NEVER log it. Ignore ANY timecode-like counter that changes continuously frame to frame. Logging the BITC is a serious error.
+
+LOG these graphic types (capture the FULL on-screen text):
+- "lower_third": a name + title super identifying a person (capture BOTH lines, e.g. "SCOTT CARVER / Wildlife Ecologist", "ASHA DE VOS / Marine Biologist").
+- "location_mark": a place/location super (e.g. "HOBART / Tasmania / Australia", "POBITORA WILDLIFE SANCTUARY / Assam / India").
+- "title_card": the film title, chapter/section titles, time-jump inserts (e.g. "3 HOURS LATER", "THE END").
+- "cgi": designed CGI / animation / science-graphic sequences with no necessarily-readable text (e.g. "CT scan of wombat", "phytoplankton bloom animation", "mathematical model", "DNA extraction animation", "iron cycle diagram"). Describe what the animation shows in the content field.
+- "credit": opening or closing credit sequences.
+- "logo": network bugs, production company logos.
 
 DO NOT LOG:
-- Dialogue subtitles or captions (lines of spoken speech displayed as text, typically at the bottom of frame)
-- Interview transcripts displayed as subtitles
-- Any text that is simply a caption of what someone is saying
+- The burned-in timecode counter (see above).
+- Dialogue subtitles / captions — lines of spoken speech displayed as text.
+- Anything that is simply a caption of what someone is saying.
 
 ${TC_INSTRUCTIONS(frameRate, dropFrame)}
 ${LANG_INSTRUCTION(language)}
@@ -134,8 +270,8 @@ ${LANG_INSTRUCTION(language)}
 For each graphic, provide:
 1. TC In (timecode when graphic first appears)
 2. TC Out (timecode when graphic disappears)
-3. Graphic Type: "lower_third", "title_card", "credit", "info_graphic", "logo", or "other"
-4. Content (exact text shown on screen)
+3. Graphic Type: "lower_third", "location_mark", "title_card", "cgi", "credit", "logo", or "other"
+4. Content (exact text shown on screen — for "cgi" with no text, a short description of the animation)
 5. Position (e.g., "lower third left", "center", "upper right")
 6. Notes (font color, animation, background, etc.)
 
@@ -240,10 +376,12 @@ CRITICAL: Only log timecodes where the animal is VISUALLY VISIBLE in the video f
 - The camera is showing people, graphics, or other subjects while the animal is discussed
 - The animal's sounds are audible but the animal is not in the frame
 
-DO NOT LOG the following — they are not fauna:
+DO NOT LOG the following — they are not logged in a broadcast wildlife species list:
 - Humans (Homo sapiens) — people, researchers, filmmakers, handlers, or any person on screen
 - Equipment or objects (cameras, vehicles, traps, trackers, drones, etc.)
 - Taxidermy, sculptures, illustrations, or non-living animal representations
+- DOMESTIC / LIVESTOCK animals: cattle/cows, water buffalo, sheep, goats, horses, pigs, domestic dogs/cats, poultry — these are not wildlife and are excluded
+- INCIDENTAL / BACKGROUND animals that are not a subject of the shot (e.g. a small bird passing through, insects in the background) — only log an animal that is a focal subject of the footage
 
 TC In and TC Out must correspond to frames where the animal is clearly visible on screen.
 

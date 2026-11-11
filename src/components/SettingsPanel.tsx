@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from "react";
 import { useStore, store } from "@/lib/store";
-import { FrameRate, FRAME_RATES, Broadcaster, BROADCASTERS } from "@/lib/types";
+import { Broadcaster, BROADCASTERS } from "@/lib/types";
 
 export default function SettingsPanel() {
   const apiKey = useStore((s) => s.apiKey);
@@ -147,15 +147,13 @@ export default function SettingsPanel() {
             </div>
             <div>
               <label className="block text-xs text-muted mb-1.5">Frame Rate</label>
-              <select
-                value={project.settings.frameRate}
-                onChange={(e) => updateSetting("frameRate", parseFloat(e.target.value) as FrameRate)}
-                className="w-full px-3 py-2 bg-background border border-border rounded-lg text-sm text-foreground focus:outline-none focus:border-accent"
+              <div
+                className="w-full px-3 py-2 bg-background border border-border rounded-lg text-sm text-foreground/80 flex items-center justify-between"
+                title="Frame rate is auto-detected from the video on upload"
               >
-                {FRAME_RATES.map((fr) => (
-                  <option key={fr} value={fr}>{fr} fps</option>
-                ))}
-              </select>
+                <span>{project.settings.frameRate} fps</span>
+                <span className="text-[10px] text-muted uppercase tracking-wider">auto-detected</span>
+              </div>
             </div>
             <div>
               <label className="block text-xs text-muted mb-1.5">Timecode Mode</label>
@@ -254,6 +252,11 @@ export default function SettingsPanel() {
                 if (confirm("Are you sure? This will permanently delete the project.")) {
                   store.setProject(null);
                   store.setJobs([]);
+                  // Also release the in-memory blob URL and purge the cached
+                  // video blob from IndexedDB so we don't leak ~750 MB across
+                  // project switches.
+                  store.setVideoBlobUrl(null);
+                  import("@/lib/blobStore").then(({ clearVideoBlobs }) => clearVideoBlobs());
                 }
               }}
               className="px-4 py-2 bg-error/10 border border-error/20 hover:bg-error/20 text-error text-sm rounded-lg font-medium transition-colors"
@@ -266,7 +269,7 @@ export default function SettingsPanel() {
 
       {/* About Section */}
       <div className="mt-6 text-center animate-fade-in" style={{ animationDelay: "0.3s" }}>
-        <p className="text-[10px] text-muted/50 tracking-[0.15em] uppercase">NEVER — Film Deliverables &middot; Gemini 2.5 Flash</p>
+        <p className="text-[10px] text-muted/50 tracking-[0.15em] uppercase">Film Deliverables Maker &middot; Gemini 2.5 Flash</p>
         <p className="text-[10px] text-muted/60 tracking-[0.1em] mt-0.5 font-mono">
           v{process.env.NEXT_PUBLIC_APP_VERSION ?? "—"} &middot; {process.env.NEXT_PUBLIC_BUILD_TIME ? new Date(process.env.NEXT_PUBLIC_BUILD_TIME).toLocaleDateString("en-GB", { day: "2-digit", month: "short", year: "numeric" }) : "local"}
         </p>

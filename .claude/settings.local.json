@@ -5,7 +5,24 @@
       "mcp__Claude_Preview__preview_start",
       "Bash(npx tsc:*)",
       "Bash(gh repo:*)",
-      "Bash(git --version)"
+      "Bash(git --version)",
+      "Bash(npx vercel:*)",
+      "Bash(npx skills:*)",
+      "Skill(update-config)",
+      "Skill(update-config:*)",
+      "Read(//Users/mmooslechner/Downloads/**)",
+      "Bash(python3:*)",
+      "Bash(/usr/local/bin/npm run:*)",
+      "Read(//usr/local/bin/**)",
+      "Read(//Users/mmooslechner/.nvm/**)",
+      "Read(//opt/homebrew/**)",
+      "Bash(/usr/local/bin/node --version)",
+      "Bash(/usr/local/bin/node /usr/local/bin/npm run build)",
+      "Bash(/usr/local/bin/node ./node_modules/.bin/tsc --noEmit)",
+      "Bash(grep -r NEXT_PUBLIC_APP_VERSION '/Users/mmooslechner/Downloads/Projects/Claude Rebuilds Never/never-v2/' --include=*.env* --include=*.json)",
+      "Bash(grep -A5 '\"\"scripts\"\"' package.json)",
+      "Bash(PATH=\"/usr/local/bin:$PATH\" /usr/local/bin/node /usr/local/bin/npx vercel --prod)",
+      "Bash(PATH=\"/usr/local/bin:$PATH\" npm run build)"
     ]
   }
 }

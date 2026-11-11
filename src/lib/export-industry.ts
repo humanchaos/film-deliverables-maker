@@ -35,7 +35,7 @@ function pdfHeader(doc: import("jspdf").jsPDF, title: string, projectName: strin
   doc.setFontSize(9);
   doc.setFont("helvetica", "normal");
   doc.setTextColor(120);
-  doc.text(`Project: ${projectName}  |  Generated: ${new Date().toLocaleDateString()}  |  NEVER v3`, 14, 22);
+  doc.text(`Project: ${projectName}  |  Generated: ${new Date().toLocaleDateString()}  |  Film Deliverables Maker`, 14, 22);
   doc.setTextColor(0);
   return 28;
 }
@@ -263,7 +263,7 @@ function docxHeader(title: string, projectName: string, docx: typeof import("doc
     new docx.Paragraph({
       children: [
         new docx.TextRun({
-          text: `Project: ${projectName}  |  Generated: ${new Date().toLocaleDateString()}  |  NEVER v3`,
+          text: `Project: ${projectName}  |  Generated: ${new Date().toLocaleDateString()}  |  Film Deliverables Maker`,
           size: 18,
           color: "888888",
           font: "Helvetica",

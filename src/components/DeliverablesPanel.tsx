@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useCallback, useEffect } from "react";
-import { useStore, store, runAnalysis as storeRunAnalysis, getAnalysisState, subscribeAnalysis, cancelAnalysis, cancelAllAnalyses } from "@/lib/store";
+import { useStore, store, runAnalysis as storeRunAnalysis, runShotListTwoPass as storeRunShotListTwoPass, getAnalysisState, subscribeAnalysis, cancelAnalysis, cancelAllAnalyses } from "@/lib/store";
 import {
   AnalysisType,
   ANALYSIS_LABELS,
@@ -112,12 +112,17 @@ export default function DeliverablesPanel() {
   }, [project]);
 
   const runAllAnalyses = useCallback(() => {
-    const types: AnalysisType[] = [
-      "shot_list", "dialogue_list", "graphics_list", "synopses", "talent_bios", "fauna_log",
+    // Shots go through the two-pass dispatcher → EDL path (frame-exact + source)
+    // when an EDL is attached, else the frame-diff fallback. The other five run
+    // concurrently via the standard per-type analysis. Each generator guards its
+    // own prerequisites and no-ops if it can't run ("run what's possible, skip
+    // the rest"), and the _analyzing map prevents double-runs. Wall-time is the
+    // slowest module, not the sum.
+    storeRunShotListTwoPass();
+    const others: AnalysisType[] = [
+      "dialogue_list", "graphics_list", "synopses", "talent_bios", "fauna_log",
     ];
-    // Fire all analyses in parallel — each type is independent.
-    // runAnalysis already guards against double-runs with _analyzing map.
-    types.forEach((type) => storeRunAnalysis(type));
+    others.forEach((type) => storeRunAnalysis(type));
   }, []);
 
   const handleExport = useCallback(
@@ -227,6 +232,35 @@ export default function DeliverablesPanel() {
   const hasVideo = !!project.videoFile;
   const deliverables = project.deliverables;
   const fr = project.settings.frameRate;
+  const edl = project.edl;
+
+  const handleEdlUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    e.target.value = ""; // allow re-selecting the same file
+    if (!file) return;
+    try {
+      const text = await file.text();
+      const { parseEdl } = await import("@/lib/edl");
+      const parsed = parseEdl(text, file.name, project.settings.frameRate);
+      if (parsed.events.length === 0) {
+        alert("No video events found in this EDL. Make sure it's a CMX 3600 EDL of the locked picture sequence.");
+        return;
+      }
+      store.updateProject({
+        edl: {
+          fileName: parsed.fileName,
+          startTC: parsed.startTC,
+          dropFrame: parsed.dropFrame,
+          fps: parsed.fps,
+          eventCount: parsed.events.length,
+          events: parsed.events,
+          warnings: parsed.warnings,
+        },
+      });
+    } catch (err) {
+      alert("Could not parse EDL: " + (err instanceof Error ? err.message : "unknown error"));
+    }
+  };
 
   const getCount = (type: AnalysisType): number => {
     switch (type) {
@@ -446,6 +480,40 @@ export default function DeliverablesPanel() {
                   )}
                 </button>
 
+                {/*
+                  Two-pass alternative for shot list only.
+                  Phase 1: Gemini returns cut timecodes only.
+                  Phase 2: middle frame per shot → per-image description call.
+                  Aims to match human shot lists more closely than the single-pass call.
+                */}
+                {activeTab === "shot_list" && (
+                  <>
+                    <button
+                      onClick={() => storeRunShotListTwoPass()}
+                      disabled={analyzing[activeTab]}
+                      title={edl
+                        ? "Build a frame-exact shot list from the attached EDL (gold cuts + source), with AI descriptions from the video."
+                        : "Detect cuts from the picture, then describe each shot. Attach an EDL for frame-exact cuts + source."}
+                      className="px-3 py-1.5 bg-surface-hover hover:bg-border border border-border hover:border-border-light text-foreground text-xs rounded-lg font-medium transition-colors disabled:opacity-40"
+                    >
+                      {edl ? "Generate Shot List (EDL ✓)" : "Generate Shot List (video-only)"}
+                    </button>
+                    <label
+                      className="px-3 py-1.5 bg-surface-hover hover:bg-border border border-border hover:border-border-light text-foreground text-xs rounded-lg font-medium transition-colors cursor-pointer"
+                      title="Attach an EDL / CMX 3600 edit list for frame-exact cuts and source provenance"
+                    >
+                      {edl ? "Replace EDL" : "Attach EDL"}
+                      <input type="file" accept=".edl,.txt,text/plain" onChange={handleEdlUpload} className="hidden" />
+                    </label>
+                    {edl && (
+                      <span className="text-[10px] text-success flex items-center gap-1" title={`${edl.fileName} · base ${edl.startTC} · ${edl.fps}fps${edl.dropFrame ? " DF" : ""}`}>
+                        EDL: {edl.eventCount} cuts (frame-exact)
+                        <button onClick={() => store.updateProject({ edl: null })} className="text-muted hover:text-error ml-1" title="Remove EDL">✕</button>
+                      </span>
+                    )}
+                  </>
+                )}
+
                 {analyzing[activeTab] && (
                   <button
                     onClick={() => cancelAnalysis(activeTab)}
@@ -509,6 +577,16 @@ export default function DeliverablesPanel() {
             </div>
 
             {/* Tab Content */}
+            {activeTab === "shot_list" && !edl && (
+              <div className="mb-4 p-3 rounded-lg border border-amber-700/40 bg-amber-950/20 text-[11px] text-amber-200/90 leading-relaxed">
+                <span className="font-semibold">No EDL attached — video-only mode.</span> For a broadcast-grade shot list, attach the edit&apos;s EDL. Without it: cuts are detected from the picture (~90% accurate, ±0.5s) instead of <span className="font-semibold">frame-exact</span>; ~10% of cuts (dissolves, similar-shot cuts) are missed; and there is <span className="font-semibold">no Source / Rights / Location</span> — that data isn&apos;t in the pixels.
+              </div>
+            )}
+            {activeTab === "shot_list" && edl && (edl.warnings?.length ?? 0) > 0 && (
+              <div className="mb-4 p-2 rounded-lg border border-border bg-surface text-[10px] text-muted">
+                EDL parsed with {edl.warnings.length} warning(s) — {edl.warnings.length} line(s) skipped.
+              </div>
+            )}
             {activeTab === "shot_list" && <ShotListView shots={deliverables.shotList} frameRate={fr} onEdit={editShot} />}
             {activeTab === "dialogue_list" && <DialogueListView entries={deliverables.dialogueList} frameRate={fr} onEdit={editDialogue} />}
             {activeTab === "graphics_list" && <GraphicsListView entries={deliverables.graphicsList} frameRate={fr} onEdit={editGraphics} />}

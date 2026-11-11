@@ -10,6 +10,20 @@ export interface Project {
   settings: ProjectSettings;
   status: ProjectStatus;
   deliverables: Deliverables;
+  /** Attached EDL (parsed) — present when the user has imported an edit list. */
+  edl?: EdlRef | null;
+}
+
+/** Lightweight EDL reference stored on the project (parsed events included; ~150KB). */
+export interface EdlRef {
+  fileName: string;
+  startTC: string;
+  dropFrame: boolean;
+  fps: number;
+  eventCount: number;
+  // Parsed events kept inline for v1 (small). Typed loosely to avoid a types↔lib cycle.
+  events: unknown[];
+  warnings: string[];
 }
 
 export type ProjectStatus =
@@ -67,6 +81,22 @@ export interface ShotEntry {
   sceneType: string;
   cameraMovement: string;
   notes: string;
+  // ─── EDL-sourced fields (optional; present when generated from an EDL) ───
+  /** Structure layer: raw source clip name from the EDL. */
+  sourceClip?: string;
+  /** Structure layer: source in/out timecodes (provenance for the DB join). */
+  sourceInTC?: string;
+  sourceOutTC?: string;
+  /** Enrichment layer: best-effort human-readable source. */
+  source?: string;
+  /** Enrichment layer: "resolved" | "pending_db" (needs footage DB). */
+  sourceConfidence?: "resolved" | "pending_db";
+  /** Structure layer: "cut" | "dissolve" | "wipe" | "key" (non-cut flagged). */
+  transition?: string;
+  /** Provenance of the cut: "edl" (frame-exact) | "auto" (pixel-detected). */
+  cutSource?: "edl" | "auto";
+  /** Enrichment: location, carried forward from the nearest preceding location mark. */
+  location?: string;
 }
 
 export interface DialogueEntry {
@@ -84,7 +114,7 @@ export interface GraphicsEntry {
   id: string;
   tcIn: string;
   tcOut: string;
-  graphicType: "lower_third" | "title_card" | "subtitle" | "credit" | "other";
+  graphicType: "lower_third" | "location_mark" | "title_card" | "cgi" | "subtitle" | "credit" | "logo" | "other";
   content: string;
   position: string;
   notes: string;

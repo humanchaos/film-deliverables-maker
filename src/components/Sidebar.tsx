@@ -61,8 +61,8 @@ export default function Sidebar({ activePanel, onNavigate, hasProject, hasApiKey
             </svg>
           </div>
           <div>
-            <h1 className="text-sm font-bold text-foreground tracking-[0.12em] uppercase">NEVER</h1>
-            <p className="text-[10px] text-muted tracking-[0.18em] uppercase font-medium">Film Deliverables <span className="text-muted/40 font-mono normal-case tracking-normal">v{process.env.NEXT_PUBLIC_APP_VERSION}</span></p>
+            <h1 className="text-sm font-bold text-foreground tracking-[0.08em] uppercase leading-tight">Film Deliverables</h1>
+            <p className="text-[10px] text-muted tracking-[0.18em] uppercase font-medium flex items-center gap-1.5">Maker <span className="font-mono normal-case tracking-normal text-[9px] px-1.5 py-0.5 rounded bg-accent/15 text-accent-light border border-accent/30">v{process.env.NEXT_PUBLIC_APP_VERSION}</span></p>
           </div>
         </div>
       </div>
