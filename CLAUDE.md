@@ -1,18 +1,5 @@
-# Film Deliverables Maker — Claude Code Rules
+# Film Deliverables Maker (app)
 
-## Project
-Next.js app deployed to film-deliverables-maker.vercel.app. Vercel project: film-deliverables-maker. GitHub: humanchaos/film-deliverables-maker. All AI calls run client-side via Gemini Files API directly from the browser. No server functions. No Vercel timeouts.
+Rules live in the project CLAUDE.md one level up: `../CLAUDE.md`. Read it first.
 
-## Build & Deploy
-cd ~/Downloads/Projects/Claude\ Rebuilds\ Never/film-deliverables-maker
-npm run build
-npx vercel --prod
-
-## Architecture constraint
-All analysis logic lives in src/lib/store.ts. Do not move AI calls server-side under any circumstances.
-
-## Current state
-Read HANDOFF.md before touching anything. The next task is documented there with exact line numbers.
-
-## The one gotcha
-shiftTc() converts chunk-relative timecodes to absolute. Do not touch this function without understanding the chunking logic above it.
+Short version: AI calls stay client-side, analysis logic stays in `src/lib/store.ts`, do not touch `shiftTc()` without reading the chunking logic above it. Read `HANDOFF.md` before changing anything.

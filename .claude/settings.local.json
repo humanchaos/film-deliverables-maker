@@ -19,7 +19,7 @@
       "Bash(/usr/local/bin/node --version)",
       "Bash(/usr/local/bin/node /usr/local/bin/npm run build)",
       "Bash(/usr/local/bin/node ./node_modules/.bin/tsc --noEmit)",
-      "Bash(grep -r NEXT_PUBLIC_APP_VERSION '/Users/mmooslechner/Downloads/Projects/Claude Rebuilds Never/never-v2/' --include=*.env* --include=*.json)",
+      "Bash(grep -r NEXT_PUBLIC_APP_VERSION '/Users/mmooslechner/Library/CloudStorage/OneDrive-RedBull(2)/Claude/Film Deliverables Maker/app/' --include=*.env* --include=*.json)",
       "Bash(grep -A5 '\"\"scripts\"\"' package.json)",
       "Bash(PATH=\"/usr/local/bin:$PATH\" /usr/local/bin/node /usr/local/bin/npx vercel --prod)",
       "Bash(PATH=\"/usr/local/bin:$PATH\" npm run build)"
