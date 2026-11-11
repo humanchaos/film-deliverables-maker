@@ -38,10 +38,21 @@ self.onmessage = async ({ data }) => {
             const { threshold = 0.4 } = data;
             self.postMessage({ type: 'status', message: 'Analyzing scenes...' });
 
-            const logData: string[] = [];
+            const ptsLines: string[] = [];
+            let durationSeconds = 0;
+
             const logHandler = ({ message }: { message: string }) => {
+                // Capture scene-change frames
                 if (message.includes('pts_time:')) {
-                    logData.push(message);
+                    ptsLines.push(message);
+                }
+                // Also capture total duration from the file header FFmpeg prints on open
+                const durationMatch = message.match(/Duration:\s*(\d+):(\d+):([0-9.]+)/);
+                if (durationMatch) {
+                    const h = parseInt(durationMatch[1], 10);
+                    const m = parseInt(durationMatch[2], 10);
+                    const s = parseFloat(durationMatch[3]);
+                    durationSeconds = h * 3600 + m * 60 + s;
                 }
             };
             ffmpeg.on('log', logHandler);
@@ -55,12 +66,27 @@ self.onmessage = async ({ data }) => {
 
             ffmpeg.off('log', logHandler);
 
-            const scenes = logData.map(log => {
-                const match = log.match(/pts_time:([0-9.]+)/);
-                return match ? parseFloat(match[1]) : null;
-            }).filter(t => t !== null) as number[];
+            // Parse all raw timestamps
+            const rawTimestamps = ptsLines
+                .map(log => {
+                    const match = log.match(/pts_time:([0-9.]+)/);
+                    return match ? parseFloat(match[1]) : null;
+                })
+                .filter((t): t is number => t !== null)
+                .sort((a, b) => a - b);
 
-            self.postMessage({ type: 'result', payload: { scenes } });
+            // Deduplicate: a single hard cut produces several adjacent flagged frames.
+            // Keep only the first timestamp within any 0.5 s window.
+            const MIN_SCENE_GAP = 0.5;
+            const scenes = rawTimestamps.reduce<number[]>((acc, time) => {
+                if (acc.length === 0 || time - acc[acc.length - 1] >= MIN_SCENE_GAP) {
+                    acc.push(time);
+                }
+                return acc;
+            }, []);
+
+            self.postMessage({ type: 'status', message: `Found ${scenes.length} scene changes (${rawTimestamps.length} raw detections deduped). Duration: ${durationSeconds.toFixed(2)}s` });
+            self.postMessage({ type: 'result', payload: { scenes, duration: durationSeconds } });
 
         } else if (type === 'EXTRACT_KEYFRAMES') {
             self.postMessage({ type: 'status', message: 'Extracting I-frames...' });
